@@ -17,6 +17,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPair>
+#include <QProgressBar>
 #include <QPushButton>
 #include <QStatusBar>
 #include <QVBoxLayout>
@@ -46,6 +47,11 @@ QString workerResultDetail(const ActionDescriptor& action, const WorkerResult& r
 }
 
 using BatchWorkerResults = QList<QPair<QString, WorkerResult>>;
+
+struct PerFileBatchExecution {
+  BatchWorkerResults results;
+  BatchProgress progress;
+};
 
 }  // namespace
 
@@ -88,12 +94,23 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   actionList_ = new QListWidget(root);
   runButton_ = new QPushButton("Select an action", root);
   runButton_->setEnabled(false);
+  stopButton_ = new QPushButton("Stop after current file", root);
+  stopButton_->setObjectName("secondaryButton");
+  stopButton_->hide();
+  progressBar_ = new QProgressBar(root);
+  progressBar_->setTextVisible(true);
+  progressBar_->hide();
+
+  auto* actionControls = new QHBoxLayout;
+  actionControls->addWidget(progressBar_, 1);
+  actionControls->addWidget(stopButton_);
+  actionControls->addWidget(runButton_);
 
   layout->addWidget(fileTitle_);
   layout->addWidget(fileMeta_);
   layout->addWidget(actionSearch_);
   layout->addWidget(actionList_, 1);
-  layout->addWidget(runButton_);
+  layout->addLayout(actionControls);
 
   historyTitle_ = new QLabel("Activity", root);
   historyTitle_->setObjectName("sectionTitle");
@@ -140,6 +157,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   });
   connect(actionSearch_, &QLineEdit::textChanged, this, &MainWindow::filterActions);
   connect(runButton_, &QPushButton::clicked, this, &MainWindow::runSelectedAction);
+  connect(stopButton_, &QPushButton::clicked, this, &MainWindow::requestStopCurrentBatch);
   connect(actionList_, &QListWidget::currentRowChanged, this, [this](int row) {
     const bool valid = row >= 0 && row < currentBatch_.actions.size() &&
                        !actionList_->item(row)->isHidden() &&
@@ -178,7 +196,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     QLabel#muted, QStatusBar { color:#666; }
     QListWidget, QLineEdit { background:#fff; border:1px solid #d8d8d8; border-radius:8px; padding:6px; }
     QPushButton { background:#111; color:#fff; border:0; border-radius:8px; min-height:36px; padding:0 14px; }
+    QPushButton#secondaryButton { background:#e4e4e4; color:#111; border:1px solid #c8c8c8; }
     QPushButton:disabled { background:#d0d0d0; color:#777; }
+    QProgressBar { background:#fff; border:1px solid #d8d8d8; border-radius:6px; text-align:center; min-height:28px; }
+    QProgressBar::chunk { background:#555; border-radius:5px; }
   )");
 
   refreshRecentFiles();
@@ -221,6 +242,11 @@ void MainWindow::inspectPath(const QString& path) {
 }
 
 void MainWindow::inspectPaths(const QStringList& paths) {
+  if (operationRunning_) {
+    statusLabel_->setText("An operation is already running. Stop it or let it finish before changing files.");
+    return;
+  }
+
   QStringList validPaths;
   QSet<QString> seen;
   int rejected = 0;
@@ -316,6 +342,43 @@ void MainWindow::filterActions(const QString& query) {
   actionList_->setCurrentRow(first);
 }
 
+void MainWindow::setOperationRunning(bool running, bool cancellable, int totalItems) {
+  operationRunning_ = running;
+  actionList_->setEnabled(!running);
+  actionSearch_->setEnabled(!running);
+  dropZone_->setEnabled(!running);
+  runButton_->setEnabled(false);
+
+  if (!running) {
+    currentCancellation_.reset();
+    stopButton_->hide();
+    progressBar_->hide();
+    progressBar_->setRange(0, 1);
+    progressBar_->setValue(0);
+    return;
+  }
+
+  progressBar_->show();
+  if (cancellable) {
+    currentCancellation_ = std::make_shared<BatchCancellation>();
+    progressBar_->setRange(0, totalItems);
+    progressBar_->setValue(0);
+    stopButton_->setEnabled(true);
+    stopButton_->show();
+  } else {
+    currentCancellation_.reset();
+    progressBar_->setRange(0, 0);
+    stopButton_->hide();
+  }
+}
+
+void MainWindow::requestStopCurrentBatch() {
+  if (!currentCancellation_) return;
+  currentCancellation_->requestStop();
+  stopButton_->setEnabled(false);
+  statusLabel_->setText("Stopping after the current file finishes...");
+}
+
 void MainWindow::runSelectedAction() {
   const int row = actionList_->currentRow();
   if (row < 0 || row >= currentBatch_.actions.size()) return;
@@ -323,16 +386,13 @@ void MainWindow::runSelectedAction() {
   const auto action = currentBatch_.actions.at(row);
   if (!action.available || currentBatch_.paths.isEmpty()) return;
 
-  runButton_->setEnabled(false);
-  actionList_->setEnabled(false);
-  actionSearch_->setEnabled(false);
-  dropZone_->setEnabled(false);
-  statusLabel_->setText(currentBatch_.paths.size() > 1
-      ? QString("Running %1 on %2 files...").arg(action.label).arg(currentBatch_.paths.size())
-      : QString("Running %1...").arg(action.label));
-
   const auto worker = worker_;
   const auto paths = currentBatch_.paths;
+  const bool cancellable = action.scope == ActionScope::PerFile && paths.size() > 1;
+  setOperationRunning(true, cancellable, paths.size());
+  statusLabel_->setText(paths.size() > 1
+      ? QString("Running %1 on %2 files...").arg(action.label).arg(paths.size())
+      : QString("Running %1...").arg(action.label));
 
   if (action.scope == ActionScope::Batch) {
     auto* watcher = new QFutureWatcher<WorkerResult>(this);
@@ -341,9 +401,7 @@ void MainWindow::runSelectedAction() {
       const auto result = watcher->result();
       watcher->deleteLater();
 
-      actionList_->setEnabled(true);
-      actionSearch_->setEnabled(true);
-      dropZone_->setEnabled(true);
+      setOperationRunning(false, false);
 
       const auto detail = workerResultDetail(action, result);
       for (const auto& path : paths) {
@@ -366,53 +424,82 @@ void MainWindow::runSelectedAction() {
     return;
   }
 
-  auto* watcher = new QFutureWatcher<BatchWorkerResults>(this);
-  connect(watcher, &QFutureWatcher<BatchWorkerResults>::finished, this,
-          [this, watcher, action, paths] {
-    const auto results = watcher->result();
+  const auto cancellation = currentCancellation_
+      ? currentCancellation_
+      : std::make_shared<BatchCancellation>();
+
+  auto* watcher = new QFutureWatcher<PerFileBatchExecution>(this);
+  connect(watcher, &QFutureWatcher<PerFileBatchExecution>::finished, this,
+          [this, watcher, action] {
+    const auto execution = watcher->result();
     watcher->deleteLater();
+    setOperationRunning(false, false);
 
-    actionList_->setEnabled(true);
-    actionSearch_->setEnabled(true);
-    dropZone_->setEnabled(true);
-
-    int succeeded = 0;
-    int failed = 0;
     QString singleDetail;
-
-    for (const auto& entry : results) {
+    for (const auto& entry : execution.results) {
       const auto& path = entry.first;
       const auto& result = entry.second;
       const auto detail = workerResultDetail(action, result);
       history_.record(action.label, path, result.ok, detail);
-      if (result.ok) {
-        ++succeeded;
-      } else {
-        ++failed;
-      }
-      if (results.size() == 1) singleDetail = detail;
+      if (execution.results.size() == 1) singleDetail = detail;
     }
 
     refreshHistory();
     actionList_->setCurrentRow(-1);
     filterActions(actionSearch_->text());
 
-    if (results.size() == 1) {
-      statusLabel_->setText(failed == 0 ? singleDetail : "Failed: " + singleDetail);
+    if (execution.progress.stopped) {
+      statusLabel_->setText(
+          QString("Stopped: %1 of %2 processed; %3 succeeded, %4 failed.")
+              .arg(execution.progress.processed)
+              .arg(execution.progress.total)
+              .arg(execution.progress.succeeded)
+              .arg(execution.progress.failed));
+    } else if (execution.results.size() == 1) {
+      statusLabel_->setText(execution.progress.failed == 0 ? singleDetail : "Failed: " + singleDetail);
     } else {
       statusLabel_->setText(
-          QString("Batch complete: %1 succeeded, %2 failed.").arg(succeeded).arg(failed));
+          QString("Batch complete: %1 succeeded, %2 failed.")
+              .arg(execution.progress.succeeded)
+              .arg(execution.progress.failed));
     }
   });
 
-  watcher->setFuture(QtConcurrent::run([worker, actionId = action.id, paths] {
-    BatchWorkerResults results;
-    results.reserve(paths.size());
-    for (const auto& path : paths) {
-      results.push_back(qMakePair(path, worker.runAction(actionId, path)));
-    }
-    return results;
-  }));
+  watcher->setFuture(QtConcurrent::run(
+      [this, worker, actionId = action.id, paths, cancellation] {
+        PerFileBatchExecution execution;
+        execution.results.reserve(paths.size());
+
+        execution.progress = runSequentialBatch(
+            paths,
+            *cancellation,
+            [&](const QString& path) {
+              const auto result = worker.runAction(actionId, path);
+              execution.results.push_back(qMakePair(path, result));
+              return result.ok;
+            },
+            [this](const BatchProgress& progress) {
+              QMetaObject::invokeMethod(
+                  this,
+                  [this, progress] {
+                    if (!operationRunning_) return;
+                    if (progressBar_->maximum() > 0) {
+                      progressBar_->setValue(progress.processed);
+                      progressBar_->setFormat(
+                          QString("%1 / %2").arg(progress.processed).arg(progress.total));
+                    }
+                    statusLabel_->setText(
+                        QString("Processed %1 of %2 · %3 succeeded · %4 failed")
+                            .arg(progress.processed)
+                            .arg(progress.total)
+                            .arg(progress.succeeded)
+                            .arg(progress.failed));
+                  },
+                  Qt::QueuedConnection);
+            });
+
+        return execution;
+      }));
 }
 
 void MainWindow::refreshRecentFiles() {
