@@ -1,7 +1,9 @@
 #include "app/action_catalog.hpp"
+#include "app/omnidrop_service.hpp"
 #include "domain/file_kind.hpp"
 
 #include <QCoreApplication>
+#include <QSet>
 #include <cassert>
 
 int main(int argc, char** argv) {
@@ -29,6 +31,28 @@ int main(int argc, char** argv) {
   bool hasExtract = false;
   for (const auto& action : pdf) hasExtract |= action.id == "pdf.extract_text";
   assert(hasExtract);
+
+  OmniDropService service;
+  const QSet<QString> runtimeActions{
+      "file.sha256",
+      "text.normalize",
+      "text.deduplicate",
+      "image.compress",
+      "image.convert_webp",
+      "image.remove_metadata",
+  };
+
+  const auto twoText = service.inspectMany({"a.txt", "b.md"}, runtimeActions);
+  bool batchHasNormalize = false;
+  for (const auto& action : twoText.commonActions) {
+    batchHasNormalize |= action.id == "text.normalize" && action.available;
+  }
+  assert(batchHasNormalize);
+
+  const auto mixed = service.inspectMany({"a.txt", "b.png"}, runtimeActions);
+  assert(mixed.commonActions.size() == 1);
+  assert(mixed.commonActions.first().id == "file.sha256");
+  assert(mixed.commonActions.first().available);
 
   return 0;
 }

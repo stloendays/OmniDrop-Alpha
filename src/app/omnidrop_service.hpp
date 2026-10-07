@@ -5,6 +5,7 @@
 #include <QList>
 #include <QSet>
 #include <QString>
+#include <QStringList>
 
 namespace omnidrop {
 
@@ -16,10 +17,19 @@ struct FileInspection {
   QList<ActionDescriptor> actions;
 };
 
+struct BatchInspection {
+  QStringList paths;
+  QList<FileInspection> files;
+  qint64 totalBytes{0};
+  QList<ActionDescriptor> commonActions;
+};
+
 class OmniDropService {
  public:
   FileInspection inspect(const QString& path) const;
   FileInspection inspect(const QString& path, const QSet<QString>& availableActionIds) const;
+  BatchInspection inspectMany(const QStringList& paths,
+                              const QSet<QString>& availableActionIds = {}) const;
 
  private:
   FileInspection inspectStatic(const QString& path) const;

@@ -16,6 +16,7 @@
 #include <QListWidget>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QPair>
 #include <QPushButton>
 #include <QStatusBar>
 #include <QVBoxLayout>
@@ -25,6 +26,7 @@
 namespace omnidrop {
 
 namespace {
+
 QSet<QString> parseCapabilities(const WorkerResult& result) {
   QSet<QString> out;
   if (!result.ok) return out;
@@ -32,7 +34,20 @@ QSet<QString> parseCapabilities(const WorkerResult& result) {
   for (const auto& value : doc.object().value("actions").toArray()) out.insert(value.toString());
   return out;
 }
+
+QString workerResultDetail(const ActionDescriptor& action, const WorkerResult& result) {
+  if (!result.ok) return result.error;
+
+  const auto object = QJsonDocument::fromJson(result.output.toUtf8()).object();
+  if (action.id == "file.sha256") {
+    return "SHA-256: " + object.value("sha256").toString();
+  }
+  return "Created: " + object.value("output_path").toString();
 }
+
+using BatchWorkerResults = QList<QPair<QString, WorkerResult>>;
+
+}  // namespace
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   setWindowTitle(QString("OmniDrop %1").arg(OMNIDROP_VERSION));
@@ -49,7 +64,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   brand->setObjectName("brand");
   header->addWidget(brand);
   header->addStretch();
-  auto* openButton = new QPushButton("Open file", root);
+  auto* openButton = new QPushButton("Open files", root);
   header->addWidget(openButton);
   layout->addLayout(header);
 
@@ -98,7 +113,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   statusBar()->addWidget(statusLabel_, 1);
 
   auto* fileMenu = menuBar()->addMenu("File");
-  auto* openAction = fileMenu->addAction("Open file...");
+  auto* openAction = fileMenu->addAction("Open files...");
   fileMenu->addSeparator();
   auto* quitAction = fileMenu->addAction("Exit");
 
@@ -109,16 +124,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   auto* helpMenu = menuBar()->addMenu("Help");
   auto* aboutAction = helpMenu->addAction("About OmniDrop");
 
-  const auto chooseFile = [this] {
-    const auto path = QFileDialog::getOpenFileName(this, "Open file");
-    if (!path.isEmpty()) inspectPath(path);
+  const auto chooseFiles = [this] {
+    const auto paths = QFileDialog::getOpenFileNames(this, "Open files");
+    if (!paths.isEmpty()) inspectPaths(paths);
   };
 
-  connect(openButton, &QPushButton::clicked, this, chooseFile);
-  connect(openAction, &QAction::triggered, this, chooseFile);
+  connect(openButton, &QPushButton::clicked, this, chooseFiles);
+  connect(openAction, &QAction::triggered, this, chooseFiles);
   connect(quitAction, &QAction::triggered, this, &QWidget::close);
   connect(dropZone_, &DropZone::filesDropped, this, [this](const QStringList& paths) {
-    if (!paths.isEmpty()) inspectPath(paths.first());
+    inspectPaths(paths);
   });
   connect(recentList_, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
     inspectPath(item->data(Qt::UserRole).toString());
@@ -126,10 +141,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   connect(actionSearch_, &QLineEdit::textChanged, this, &MainWindow::filterActions);
   connect(runButton_, &QPushButton::clicked, this, &MainWindow::runSelectedAction);
   connect(actionList_, &QListWidget::currentRowChanged, this, [this](int row) {
-    const bool valid = row >= 0 && row < current_.actions.size() &&
-                       !actionList_->item(row)->isHidden() && current_.actions.at(row).available;
+    const bool valid = row >= 0 && row < currentBatch_.commonActions.size() &&
+                       !actionList_->item(row)->isHidden() &&
+                       currentBatch_.commonActions.at(row).available;
     runButton_->setEnabled(valid);
-    if (valid) runButton_->setText(QString("Run %1").arg(current_.actions.at(row).label));
+    if (valid) {
+      const auto& action = currentBatch_.commonActions.at(row);
+      runButton_->setText(currentBatch_.paths.size() > 1
+          ? QString("Run %1 on %2 files").arg(action.label).arg(currentBatch_.paths.size())
+          : QString("Run %1").arg(action.label));
+    }
   });
   connect(clearRecent, &QAction::triggered, this, [this] { recentFiles_.clear(); refreshRecentFiles(); });
   connect(clearActivity, &QAction::triggered, this, [this] { history_.clear(); refreshHistory(); });
@@ -143,7 +164,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   findAction->setShortcut(QKeySequence::Find);
   addAction(findAction);
   connect(findAction, &QAction::triggered, this, [this] {
-    if (actionSearch_->isVisible()) { actionSearch_->setFocus(); actionSearch_->selectAll(); }
+    if (actionSearch_->isVisible()) {
+      actionSearch_->setFocus();
+      actionSearch_->selectAll();
+    }
   });
 
   setStyleSheet(R"(
@@ -174,31 +198,83 @@ void MainWindow::probeWorkerCapabilities() {
   const auto worker = worker_;
   auto* watcher = new QFutureWatcher<WorkerResult>(this);
   connect(watcher, &QFutureWatcher<WorkerResult>::finished, this, [this, watcher] {
-    runtimeCapabilities_ = parseCapabilities(watcher->result());
+    const auto result = watcher->result();
+    runtimeCapabilities_ = parseCapabilities(result);
     capabilityProbeComplete_ = true;
     watcher->deleteLater();
-    statusLabel_->setText(QString("Local processors ready - %1 actions available.").arg(runtimeCapabilities_.size()));
-    if (!current_.path.isEmpty()) showInspection(service_.inspect(current_.path, runtimeCapabilities_));
+
+    if (result.ok) {
+      statusLabel_->setText(QString("Local processors ready - %1 actions available.").arg(runtimeCapabilities_.size()));
+    } else {
+      statusLabel_->setText("Local worker unavailable: " + result.error);
+    }
+
+    if (!currentBatch_.paths.isEmpty()) {
+      showBatchInspection(service_.inspectMany(currentBatch_.paths, runtimeCapabilities_));
+    }
   });
   watcher->setFuture(QtConcurrent::run([worker] { return worker.capabilities(); }));
 }
 
 void MainWindow::inspectPath(const QString& path) {
-  QFileInfo info(path);
-  if (!info.exists() || !info.isFile()) {
-    statusLabel_->setText("That path is not a readable file.");
-    return;
-  }
-  recentFiles_.add(info.absoluteFilePath());
-  refreshRecentFiles();
-  showInspection(capabilityProbeComplete_ ? service_.inspect(info.absoluteFilePath(), runtimeCapabilities_)
-                                          : service_.inspect(info.absoluteFilePath(), {}));
+  inspectPaths({path});
 }
 
-void MainWindow::showInspection(const FileInspection& inspection) {
-  current_ = inspection;
-  fileTitle_->setText(inspection.name);
-  fileMeta_->setText(QString("%1  /  %2").arg(toString(inspection.kind), formatSize(inspection.sizeBytes)));
+void MainWindow::inspectPaths(const QStringList& paths) {
+  QStringList validPaths;
+  QSet<QString> seen;
+  int rejected = 0;
+
+  for (const auto& path : paths) {
+    const QFileInfo info(path);
+    if (!info.exists() || !info.isFile()) {
+      ++rejected;
+      continue;
+    }
+
+    const auto normalized = info.absoluteFilePath();
+    if (seen.contains(normalized)) continue;
+    seen.insert(normalized);
+    validPaths.push_back(normalized);
+    recentFiles_.add(normalized);
+  }
+
+  if (validPaths.isEmpty()) {
+    statusLabel_->setText("No readable files were selected.");
+    return;
+  }
+
+  refreshRecentFiles();
+  showBatchInspection(service_.inspectMany(
+      validPaths,
+      capabilityProbeComplete_ ? runtimeCapabilities_ : QSet<QString>{}));
+
+  if (rejected > 0) {
+    statusLabel_->setText(QString("Ready: %1 file(s); %2 unsupported item(s) ignored.")
+                              .arg(validPaths.size())
+                              .arg(rejected));
+  }
+}
+
+void MainWindow::showBatchInspection(const BatchInspection& inspection) {
+  currentBatch_ = inspection;
+
+  if (inspection.files.size() == 1) {
+    const auto& file = inspection.files.first();
+    fileTitle_->setText(file.name);
+    fileMeta_->setText(QString("%1  /  %2").arg(toString(file.kind), formatSize(file.sizeBytes)));
+  } else {
+    QSet<QString> kinds;
+    for (const auto& file : inspection.files) kinds.insert(toString(file.kind));
+    QStringList kindNames;
+    for (const auto& kind : kinds) kindNames.push_back(kind);
+    kindNames.sort();
+
+    fileTitle_->setText(QString("%1 files selected").arg(inspection.files.size()));
+    fileMeta_->setText(QString("%1  /  %2  /  common actions")
+                           .arg(formatSize(inspection.totalBytes), kindNames.join(", ")));
+  }
+
   fileTitle_->show();
   fileMeta_->show();
   actionSearch_->show();
@@ -206,7 +282,7 @@ void MainWindow::showInspection(const FileInspection& inspection) {
   runButton_->show();
   actionList_->clear();
 
-  for (const auto& action : inspection.actions) {
+  for (const auto& action : inspection.commonActions) {
     auto* item = new QListWidgetItem(action.label);
     item->setToolTip(action.description);
     if (!action.available) {
@@ -215,15 +291,23 @@ void MainWindow::showInspection(const FileInspection& inspection) {
     }
     actionList_->addItem(item);
   }
+
   filterActions(actionSearch_->text());
-  statusLabel_->setText(QString("Ready: %1").arg(inspection.path));
+
+  if (inspection.paths.size() == 1) {
+    statusLabel_->setText(QString("Ready: %1").arg(inspection.paths.first()));
+  } else {
+    statusLabel_->setText(
+        QString("Ready: %1 files. Actions shown are valid for every selected file.")
+            .arg(inspection.paths.size()));
+  }
 }
 
 void MainWindow::filterActions(const QString& query) {
   const auto needle = query.trimmed();
   int first = -1;
-  for (int row = 0; row < current_.actions.size(); ++row) {
-    const auto& action = current_.actions.at(row);
+  for (int row = 0; row < currentBatch_.commonActions.size(); ++row) {
+    const auto& action = currentBatch_.commonActions.at(row);
     const bool match = needle.isEmpty() || action.label.contains(needle, Qt::CaseInsensitive) ||
       action.description.contains(needle, Qt::CaseInsensitive) || action.id.contains(needle, Qt::CaseInsensitive);
     actionList_->item(row)->setHidden(!match);
@@ -234,41 +318,67 @@ void MainWindow::filterActions(const QString& query) {
 
 void MainWindow::runSelectedAction() {
   const int row = actionList_->currentRow();
-  if (row < 0 || row >= current_.actions.size()) return;
-  const auto action = current_.actions.at(row);
-  if (!action.available) return;
+  if (row < 0 || row >= currentBatch_.commonActions.size()) return;
+
+  const auto action = currentBatch_.commonActions.at(row);
+  if (!action.available || currentBatch_.paths.isEmpty()) return;
 
   runButton_->setEnabled(false);
   actionList_->setEnabled(false);
   actionSearch_->setEnabled(false);
   dropZone_->setEnabled(false);
-  statusLabel_->setText(QString("Running %1...").arg(action.label));
+  statusLabel_->setText(currentBatch_.paths.size() > 1
+      ? QString("Running %1 on %2 files...").arg(action.label).arg(currentBatch_.paths.size())
+      : QString("Running %1...").arg(action.label));
 
   const auto worker = worker_;
-  const auto path = current_.path;
-  auto* watcher = new QFutureWatcher<WorkerResult>(this);
-  connect(watcher, &QFutureWatcher<WorkerResult>::finished, this, [this, watcher, action, path] {
-    const auto result = watcher->result();
+  const auto paths = currentBatch_.paths;
+  auto* watcher = new QFutureWatcher<BatchWorkerResults>(this);
+  connect(watcher, &QFutureWatcher<BatchWorkerResults>::finished, this,
+          [this, watcher, action, paths] {
+    const auto results = watcher->result();
     watcher->deleteLater();
+
     actionList_->setEnabled(true);
     actionSearch_->setEnabled(true);
     dropZone_->setEnabled(true);
 
-    QString detail;
-    if (result.ok) {
-      const auto object = QJsonDocument::fromJson(result.output.toUtf8()).object();
-      detail = action.id == "file.sha256" ? "SHA-256: " + object.value("sha256").toString()
-                                           : "Created: " + object.value("output_path").toString();
-      statusLabel_->setText(detail);
-    } else {
-      detail = result.error;
-      statusLabel_->setText("Failed: " + detail);
+    int succeeded = 0;
+    int failed = 0;
+    QString singleDetail;
+
+    for (const auto& entry : results) {
+      const auto& path = entry.first;
+      const auto& result = entry.second;
+      const auto detail = workerResultDetail(action, result);
+      history_.record(action.label, path, result.ok, detail);
+      if (result.ok) {
+        ++succeeded;
+      } else {
+        ++failed;
+      }
+      if (results.size() == 1) singleDetail = detail;
     }
-    history_.record(action.label, path, result.ok, detail);
+
     refreshHistory();
     filterActions(actionSearch_->text());
+
+    if (results.size() == 1) {
+      statusLabel_->setText(failed == 0 ? singleDetail : "Failed: " + singleDetail);
+    } else {
+      statusLabel_->setText(
+          QString("Batch complete: %1 succeeded, %2 failed.").arg(succeeded).arg(failed));
+    }
   });
-  watcher->setFuture(QtConcurrent::run([worker, actionId = action.id, path] { return worker.runAction(actionId, path); }));
+
+  watcher->setFuture(QtConcurrent::run([worker, actionId = action.id, paths] {
+    BatchWorkerResults results;
+    results.reserve(paths.size());
+    for (const auto& path : paths) {
+      results.push_back(qMakePair(path, worker.runAction(actionId, path)));
+    }
+    return results;
+  }));
 }
 
 void MainWindow::refreshRecentFiles() {
@@ -294,4 +404,4 @@ void MainWindow::refreshHistory() {
   historyList_->setVisible(visible);
 }
 
-} // namespace omnidrop
+}  // namespace omnidrop

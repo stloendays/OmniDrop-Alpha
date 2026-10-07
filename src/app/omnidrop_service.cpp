@@ -3,6 +3,8 @@
 #include <QFileInfo>
 #include <QSet>
 
+#include <utility>
+
 namespace omnidrop {
 
 FileInspection OmniDropService::inspectStatic(const QString& path) const {
@@ -51,6 +53,47 @@ FileInspection OmniDropService::inspect(const QString& path,
     }
   }
   return inspection;
+}
+
+BatchInspection OmniDropService::inspectMany(
+    const QStringList& paths,
+    const QSet<QString>& availableActionIds) const {
+  BatchInspection batch;
+  batch.paths = paths;
+
+  for (const auto& path : paths) {
+    auto inspection = inspect(path, availableActionIds);
+    batch.totalBytes += inspection.sizeBytes;
+    batch.files.push_back(std::move(inspection));
+  }
+
+  if (batch.files.isEmpty()) return batch;
+
+  for (const auto& firstAction : batch.files.first().actions) {
+    auto common = firstAction;
+    bool presentInEveryFile = true;
+
+    for (int fileIndex = 1; fileIndex < batch.files.size(); ++fileIndex) {
+      const auto& inspection = batch.files.at(fileIndex);
+      const ActionDescriptor* match = nullptr;
+      for (const auto& action : inspection.actions) {
+        if (action.id == firstAction.id) {
+          match = &action;
+          break;
+        }
+      }
+
+      if (match == nullptr) {
+        presentInEveryFile = false;
+        break;
+      }
+      common.available = common.available && match->available;
+    }
+
+    if (presentInEveryFile) batch.commonActions.push_back(common);
+  }
+
+  return batch;
 }
 
 }  // namespace omnidrop
