@@ -72,11 +72,13 @@ Implemented:
 
 - line-ending and trailing-whitespace normalization;
 - duplicate-line removal;
+- JSON validation + pretty-print formatting;
+- XML parsing + pretty-print formatting;
 - SHA-256 for any local file.
 
 Next:
 
-- JSON/XML/YAML formatting and validation;
+- YAML formatting and validation;
 - encoding inspection/conversion;
 - diff helpers;
 - Base64 / URL encoding utilities.
