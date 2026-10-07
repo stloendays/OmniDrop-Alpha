@@ -3,6 +3,8 @@
 #include <QFileInfo>
 #include <QSet>
 
+#include <utility>
+
 namespace omnidrop {
 
 FileInspection OmniDropService::inspectStatic(const QString& path) const {
