@@ -22,6 +22,7 @@ add_library(omnidrop_core
   src/domain/file_kind.cpp
   src/app/action_catalog.cpp
   src/app/activation_protocol.cpp
+  src/app/diagnostics.cpp
   src/app/omnidrop_service.cpp
 )
 
@@ -30,6 +31,7 @@ target_link_libraries(omnidrop_core PUBLIC Qt6::Core)
 target_compile_definitions(omnidrop_core PUBLIC OMNIDROP_VERSION="${PROJECT_VERSION}")
 
 add_library(omnidrop_adapters
+  src/adapters/diagnostics_service.cpp
   src/adapters/python_worker_client.cpp
   src/adapters/recent_files_store.cpp
   src/adapters/action_history_store.cpp
@@ -89,10 +91,19 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   target_link_libraries(omnidrop_activation_protocol_tests PRIVATE omnidrop_core Qt6::Core)
   add_test(NAME omnidrop_activation_protocol_tests COMMAND omnidrop_activation_protocol_tests)
 
+  add_executable(omnidrop_diagnostics_tests tests/diagnostics_tests.cpp)
+  target_link_libraries(omnidrop_diagnostics_tests PRIVATE omnidrop_core Qt6::Core)
+  add_test(NAME omnidrop_diagnostics_tests COMMAND omnidrop_diagnostics_tests)
+
   if(TARGET omnidrop_cli)
     add_test(NAME omnidrop_cli_version COMMAND omnidrop_cli --version)
     set_tests_properties(omnidrop_cli_version PROPERTIES
       PASS_REGULAR_EXPRESSION "^${PROJECT_VERSION}"
+    )
+
+    add_test(NAME omnidrop_cli_diagnostics COMMAND omnidrop_cli diagnostics)
+    set_tests_properties(omnidrop_cli_diagnostics PROPERTIES
+      PASS_REGULAR_EXPRESSION "\"schema_version\""
     )
   endif()
 

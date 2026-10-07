@@ -1,3 +1,4 @@
+#include "adapters/diagnostics_service.hpp"
 #include "adapters/python_worker_client.hpp"
 #include "app/omnidrop_service.hpp"
 #include "app/batch_job.hpp"
@@ -21,6 +22,7 @@ int usage() {
       << "  omnidrop-cli actions <file>\n"
       << "  omnidrop-cli batch-actions <file> <file> [...]\n"
       << "  omnidrop-cli capabilities\n"
+      << "  omnidrop-cli diagnostics\n"
       << "  omnidrop-cli run <action-id> <file>\n"
       << "  omnidrop-cli batch-run <action-id> <file> <file> [...]\n"
       << "  omnidrop-cli worker-ping\n";
@@ -88,6 +90,12 @@ int main(int argc, char* argv[]) {
 
   if ((command == "--version" || command == "version") && args.size() == 2) {
     out << OMNIDROP_VERSION << '\n';
+    return 0;
+  }
+
+  if (command == "diagnostics" && args.size() == 2) {
+    omnidrop::DiagnosticsService diagnostics;
+    out << QString::fromUtf8(diagnostics.collectJson(QJsonDocument::Indented));
     return 0;
   }
 
