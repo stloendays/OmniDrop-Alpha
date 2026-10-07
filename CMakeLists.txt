@@ -100,6 +100,11 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
     set_tests_properties(omnidrop_cli_version PROPERTIES
       PASS_REGULAR_EXPRESSION "^${PROJECT_VERSION}"
     )
+
+    add_test(NAME omnidrop_cli_diagnostics COMMAND omnidrop_cli diagnostics)
+    set_tests_properties(omnidrop_cli_diagnostics PROPERTIES
+      PASS_REGULAR_EXPRESSION "\"schema_version\""
+    )
   endif()
 
   if(TARGET omnidrop_desktop)
