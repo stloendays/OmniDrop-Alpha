@@ -1,4 +1,5 @@
 #include "app/action_catalog.hpp"
+#include "app/batch_job.hpp"
 #include "app/omnidrop_service.hpp"
 #include "domain/file_kind.hpp"
 
@@ -71,6 +72,40 @@ int main(int argc, char** argv) {
   const auto onePdf = service.inspectMany({"a.pdf"}, runtimeActions);
   for (const auto& action : onePdf.actions) {
     assert(action.id != "pdf.merge");
+  }
+
+  {
+    BatchCancellation cancellation;
+    int progressCallbacks = 0;
+    const auto progress = runSequentialBatch(
+        {"a.txt", "b.txt", "c.txt"},
+        cancellation,
+        [](const QString& path) { return path != "b.txt"; },
+        [&](const BatchProgress&) { ++progressCallbacks; });
+
+    assert(progress.total == 3);
+    assert(progress.processed == 3);
+    assert(progress.succeeded == 2);
+    assert(progress.failed == 1);
+    assert(!progress.stopped);
+    assert(progressCallbacks == 3);
+  }
+
+  {
+    BatchCancellation cancellation;
+    const auto progress = runSequentialBatch(
+        {"a.txt", "b.txt", "c.txt"},
+        cancellation,
+        [](const QString&) { return true; },
+        [&](const BatchProgress& state) {
+          if (state.processed == 1) cancellation.requestStop();
+        });
+
+    assert(progress.total == 3);
+    assert(progress.processed == 1);
+    assert(progress.succeeded == 1);
+    assert(progress.failed == 0);
+    assert(progress.stopped);
   }
 
   return 0;

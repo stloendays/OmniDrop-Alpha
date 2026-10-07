@@ -1,5 +1,6 @@
 #include "adapters/python_worker_client.hpp"
 #include "app/omnidrop_service.hpp"
+#include "app/batch_job.hpp"
 
 #include <QCoreApplication>
 #include <QFileInfo>
@@ -235,29 +236,36 @@ int main(int argc, char* argv[]) {
         });
       }
     } else {
-      for (const auto& path : paths) {
-        const auto result = worker.runAction(actionId, path);
-        if (result.ok) {
-          const auto document = QJsonDocument::fromJson(result.output.toUtf8());
-          if (document.isObject()) {
-            results.append(document.object());
-          } else {
-            allOk = false;
+      omnidrop::BatchCancellation cancellation;
+      const auto progress = omnidrop::runSequentialBatch(
+          paths,
+          cancellation,
+          [&](const QString& path) {
+            const auto result = worker.runAction(actionId, path);
+            if (result.ok) {
+              const auto document = QJsonDocument::fromJson(result.output.toUtf8());
+              if (document.isObject()) {
+                results.append(document.object());
+                return true;
+              }
+              results.append(QJsonObject{
+                  {"ok", false},
+                  {"path", path},
+                  {"error", "Worker returned invalid JSON."},
+              });
+              return false;
+            }
+
             results.append(QJsonObject{
                 {"ok", false},
                 {"path", path},
-                {"error", "Worker returned invalid JSON."},
+                {"error", result.error},
             });
-          }
-        } else {
-          allOk = false;
-          results.append(QJsonObject{
-              {"ok", false},
-              {"path", path},
-              {"error", result.error},
-          });
-        }
-      }
+            return false;
+          },
+          [](const omnidrop::BatchProgress&) {});
+
+      allOk = progress.failed == 0 && !progress.stopped;
     }
 
     const QJsonObject payload{
