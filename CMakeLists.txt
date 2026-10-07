@@ -57,6 +57,13 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   add_executable(omnidrop_core_tests tests/action_catalog_tests.cpp)
   target_link_libraries(omnidrop_core_tests PRIVATE omnidrop_core Qt6::Core)
   add_test(NAME omnidrop_core_tests COMMAND omnidrop_core_tests)
+
+  if(TARGET omnidrop_cli)
+    add_test(NAME omnidrop_cli_version COMMAND omnidrop_cli --version)
+    set_tests_properties(omnidrop_cli_version PROPERTIES
+      PASS_REGULAR_EXPRESSION "^${PROJECT_VERSION}"
+    )
+  endif()
 endif()
 
 # Install layout for development/portable packaging. A self-contained Python runtime is a later
