@@ -56,6 +56,8 @@ QList<ActionDescriptor> ActionCatalog::recommendedActions(FileKind kind) const {
       actions = {
           action("text.normalize", "Normalize text", "Normalize line endings and trailing whitespace.", 10, true, "python"),
           action("text.deduplicate", "Remove duplicate lines", "Create a copy with duplicate lines removed.", 20, true, "python"),
+          action("text.format_json", "Format JSON", "Validate and pretty-print JSON into a new sibling file.", 30, true, "python"),
+          action("text.format_xml", "Format XML", "Parse and pretty-print XML into a new sibling file.", 40, true, "python"),
       };
       break;
     case FileKind::Archive:
