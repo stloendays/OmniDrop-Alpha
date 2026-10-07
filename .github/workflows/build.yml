@@ -32,17 +32,48 @@ jobs:
         run: python -m pip install -r python/requirements.txt
       - name: Python worker tests
         run: python -m unittest discover -s tests -p "test_worker.py"
-      - name: Stage Windows development package
+      - name: Stage and smoke-test Windows development package
         shell: pwsh
         run: |
           cmake --install build --config Release --prefix package
+
+          $packageDir = (Resolve-Path package).Path
+          $guiPath = Join-Path $packageDir "OmniDrop.exe"
+          $windeployqt = (Get-Command windeployqt.exe -ErrorAction Stop).Source
+          & $windeployqt --release --no-translations $guiPath
+          if ($LASTEXITCODE -ne 0) {
+            throw "windeployqt failed with exit code $LASTEXITCODE"
+          }
+
           python -m pip install --target package/python/vendor -r python/requirements.txt
-          Compress-Archive -Path package/* -DestinationPath OmniDrop-windows-dev.zip -Force
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to stage Python worker dependencies."
+          }
+
+          $version = (& package/omnidrop-cli.exe --version | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($version)) {
+            throw "Cannot determine packaged OmniDrop version."
+          }
+
+          & ./tests/smoke_windows_package.ps1 -PackageDir package -ExpectedVersion $version
+          if ($LASTEXITCODE -ne 0) {
+            throw "Packaged Windows smoke test failed."
+          }
+
+          $archive = "OmniDrop-$version-windows-dev.zip"
+          Compress-Archive -Path package/* -DestinationPath $archive -Force
+
+          $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $archive" | Set-Content "$archive.sha256" -Encoding ascii
+
       - name: Upload Windows development package
         uses: actions/upload-artifact@v4
         with:
           name: OmniDrop-windows-dev
-          path: OmniDrop-windows-dev.zip
+          path: |
+            OmniDrop-*-windows-dev.zip
+            OmniDrop-*-windows-dev.zip.sha256
+          if-no-files-found: error
 
   linux-core:
     runs-on: ubuntu-latest
