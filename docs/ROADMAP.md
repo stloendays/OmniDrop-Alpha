@@ -25,13 +25,15 @@ Implemented:
 - common-action intersection across heterogeneous file selections;
 - sequential background batch execution without blocking the UI;
 - CLI `batch-actions` and `batch-run` on the same application-service semantics;
-- one Activity entry per processed source file.
+- one Activity entry per processed source file;
+- visible per-file progress for sequential batches;
+- cooperative stop: finish the current file, then do not start the next item.
 
 Next:
 
-- visible per-file queue/progress;
-- cancellation;
 - retry failed items;
+- persistent queue/job IDs across restart;
+- true in-flight cancellation for processors that can safely support it;
 - bounded parallelism for processors that are safe to run concurrently.
 
 ### Images
