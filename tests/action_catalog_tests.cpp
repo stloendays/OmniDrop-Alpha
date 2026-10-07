@@ -28,6 +28,16 @@ int main(int argc, char** argv) {
   assert(hasHash);
   assert(hasNormalize);
 
+  const auto imageActions = catalog.recommendedActions(FileKind::Image);
+  bool hasRotateClockwise = false;
+  bool hasRotateCounterclockwise = false;
+  for (const auto& action : imageActions) {
+    hasRotateClockwise |= action.id == "image.rotate_clockwise";
+    hasRotateCounterclockwise |= action.id == "image.rotate_counterclockwise";
+  }
+  assert(hasRotateClockwise);
+  assert(hasRotateCounterclockwise);
+
   const auto pdf = catalog.recommendedActions(FileKind::Pdf);
   bool hasExtract = false;
   for (const auto& action : pdf) hasExtract |= action.id == "pdf.extract_text";
