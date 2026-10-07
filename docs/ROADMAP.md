@@ -17,20 +17,37 @@ Completed in the current alpha:
 
 ## Phase 1 - useful daily file operations
 
+### Shared batch workflow
+
+Implemented:
+
+- multi-file Open and drag-and-drop;
+- common-action intersection across heterogeneous file selections;
+- sequential background batch execution without blocking the UI;
+- CLI `batch-actions` and `batch-run` on the same application-service semantics;
+- one Activity entry per processed source file.
+
+Next:
+
+- visible per-file queue/progress;
+- cancellation;
+- retry failed items;
+- bounded parallelism for processors that are safe to run concurrently.
+
 ### Images
 
 Implemented:
 
 - JPEG/PNG/WebP compression with non-destructive output;
 - PNG/JPEG/BMP/WebP to WebP conversion;
-- metadata removal with EXIF orientation preserved visually.
+- metadata removal with EXIF orientation preserved visually;
+- batch execution for existing image actions.
 
 Next:
 
 - quality/size preview before compression;
 - resize/crop/rotate;
 - OCR;
-- multi-file batch mode;
 - animated image semantics.
 
 ### PDFs
@@ -38,7 +55,8 @@ Next:
 Implemented:
 
 - text extraction;
-- split into one PDF per page.
+- split into one PDF per page;
+- batch execution for existing single-PDF actions.
 
 Next:
 
@@ -90,7 +108,7 @@ Next:
 - Explorer context menu;
 - Send to OmniDrop;
 - richer command palette;
-- batch queue;
+- persistent batch queue;
 - single-instance activation;
 - file/deep-link entry points where useful.
 
