@@ -15,6 +15,8 @@ alias when semantics genuinely change.
 | `text.format_xml` | XML | implemented | Python stdlib | parsed, indented sibling `.xml` file |
 | `image.compress` | image | implemented | Pillow | new sibling file |
 | `image.convert_webp` | image | implemented | Pillow | new `.webp` sibling file |
+| `image.rotate_clockwise` | PNG/JPEG/WebP/BMP/TIFF | implemented | Pillow | new sibling file rotated 90° clockwise |
+| `image.rotate_counterclockwise` | PNG/JPEG/WebP/BMP/TIFF | implemented | Pillow | new sibling file rotated 90° counterclockwise |
 | `image.remove_metadata` | image | implemented | Pillow | new sibling file |
 | `image.ocr` | image | planned | OCR adapter | TBD |
 | `pdf.compress` | PDF | planned | PDF adapter | TBD |
@@ -39,6 +41,13 @@ Actions have an explicit execution scope:
 
 `pdf.merge` is a batch action. It requires at least two PDF files and preserves the selection order
 when appending pages. The input PDFs are not modified.
+
+## Image rotation semantics
+
+Rotation actions normalize EXIF orientation before rotating pixels, preserve the source file,
+and preserve common color-profile/EXIF metadata where the destination format supports it.
+Animated images are intentionally unavailable for rotation until frame-preserving semantics
+are implemented.
 
 ## Runtime availability
 

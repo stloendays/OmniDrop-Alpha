@@ -145,6 +145,51 @@ def image_convert_webp(path: Path) -> Path:
         return output
 
 
+def image_rotate(path: Path, clockwise: bool) -> Path:
+    from PIL import Image, ImageOps
+
+    with Image.open(path) as source:
+        if getattr(source, "is_animated", False) and getattr(source, "n_frames", 1) > 1:
+            raise ValueError("Animated image rotation is not supported yet.")
+
+        # Normalize EXIF orientation before applying the requested rotation so the
+        # output pixels match what users see in ordinary image viewers.
+        image = ImageOps.exif_transpose(source)
+        image.load()
+        fmt = (source.format or path.suffix.lstrip(".")).upper()
+        marker = "rotated-cw" if clockwise else "rotated-ccw"
+        output = unique_output_path(path, marker)
+
+        transpose = Image.Transpose.ROTATE_270 if clockwise else Image.Transpose.ROTATE_90
+        rotated = image.transpose(transpose)
+
+        save_args: dict[str, Any] = {}
+        icc_profile = source.info.get("icc_profile")
+        if icc_profile:
+            save_args["icc_profile"] = icc_profile
+
+        if fmt in {"JPEG", "JPG", "WEBP", "TIFF"}:
+            exif = image.getexif()
+            if exif:
+                exif.pop(274, None)  # Orientation is baked into the output pixels.
+                exif_bytes = exif.tobytes()
+                if exif_bytes:
+                    save_args["exif"] = exif_bytes
+
+        if fmt in {"JPEG", "JPG"}:
+            if rotated.mode not in {"RGB", "L"}:
+                rotated = rotated.convert("RGB")
+            save_args.update(quality=95, optimize=True)
+            fmt = "JPEG"
+        elif fmt == "PNG":
+            save_args.update(optimize=True)
+        elif fmt == "WEBP":
+            save_args.update(quality=95, method=6)
+
+        rotated.save(output, format=fmt, **save_args)
+        return output
+
+
 def image_remove_metadata(path: Path) -> Path:
     from PIL import Image, ImageOps
 
@@ -287,6 +332,8 @@ def capabilities() -> list[str]:
             [
                 "image.compress",
                 "image.convert_webp",
+                "image.rotate_clockwise",
+                "image.rotate_counterclockwise",
                 "image.remove_metadata",
             ]
         )
@@ -398,6 +445,8 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
         if action_id in {
             "image.compress",
             "image.convert_webp",
+            "image.rotate_clockwise",
+            "image.rotate_counterclockwise",
             "image.remove_metadata",
         }:
             if not pillow_available():
@@ -406,6 +455,8 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
                 operation = {
                     "image.compress": image_compress,
                     "image.convert_webp": image_convert_webp,
+                    "image.rotate_clockwise": lambda source: image_rotate(source, True),
+                    "image.rotate_counterclockwise": lambda source: image_rotate(source, False),
                     "image.remove_metadata": image_remove_metadata,
                 }[action_id]
                 return ok(action_id=action_id, path=str(path), output_path=str(operation(path)))

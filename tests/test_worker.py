@@ -22,6 +22,9 @@ class WorkerTests(unittest.TestCase):
         self.assertIn("text.format_json", result["actions"])
         self.assertIn("text.format_xml", result["actions"])
         self.assertIn("archive.extract", result["actions"])
+        if worker.pillow_available():
+            self.assertIn("image.rotate_clockwise", result["actions"])
+            self.assertIn("image.rotate_counterclockwise", result["actions"])
         if worker.pypdf_available():
             self.assertIn("pdf.merge", result["actions"])
 
@@ -89,6 +92,73 @@ class WorkerTests(unittest.TestCase):
             rendered = output.read_text(encoding="utf-8")
             self.assertIn("<root>", rendered)
             self.assertIn('  <item id="1">x</item>', rendered)
+
+    @unittest.skipUnless(worker.pillow_available(), "Pillow is not installed")
+    def test_image_rotation_preserves_source_and_direction(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "grid.png"
+
+            image = Image.new("RGB", (2, 3))
+            image.putdata(
+                [
+                    (255, 0, 0), (0, 255, 0),
+                    (0, 0, 255), (255, 255, 0),
+                    (255, 0, 255), (0, 255, 255),
+                ]
+            )
+            image.save(path)
+            before = path.read_bytes()
+
+            clockwise = worker.handle(
+                {"command": "run", "action_id": "image.rotate_clockwise", "path": str(path)}
+            )
+            self.assertTrue(clockwise["ok"])
+            self.assertEqual(path.read_bytes(), before)
+
+            with Image.open(clockwise["output_path"]) as rotated:
+                self.assertEqual(rotated.size, (3, 2))
+                self.assertEqual(
+                    list(rotated.getdata()),
+                    [
+                        (255, 0, 255), (0, 0, 255), (255, 0, 0),
+                        (0, 255, 255), (255, 255, 0), (0, 255, 0),
+                    ],
+                )
+
+            counterclockwise = worker.handle(
+                {"command": "run", "action_id": "image.rotate_counterclockwise", "path": str(path)}
+            )
+            self.assertTrue(counterclockwise["ok"])
+            self.assertEqual(path.read_bytes(), before)
+
+            with Image.open(counterclockwise["output_path"]) as rotated:
+                self.assertEqual(rotated.size, (3, 2))
+                self.assertEqual(
+                    list(rotated.getdata()),
+                    [
+                        (0, 255, 0), (255, 255, 0), (0, 255, 255),
+                        (255, 0, 0), (0, 0, 255), (255, 0, 255),
+                    ],
+                )
+
+    @unittest.skipUnless(worker.pillow_available(), "Pillow is not installed")
+    def test_animated_image_rotation_is_rejected(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "animated.gif"
+            first = Image.new("RGB", (2, 2), "red")
+            second = Image.new("RGB", (2, 2), "blue")
+            first.save(path, save_all=True, append_images=[second], duration=50, loop=0)
+
+            result = worker.handle(
+                {"command": "run", "action_id": "image.rotate_clockwise", "path": str(path)}
+            )
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["error"]["code"], "image_error")
 
     @unittest.skipUnless(worker.pypdf_available(), "pypdf is not installed")
     def test_pdf_merge_preserves_inputs_and_order(self):

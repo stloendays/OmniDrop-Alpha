@@ -34,11 +34,15 @@ FileInspection OmniDropService::inspectStatic(const QString& path) const {
     const auto suffix = info.suffix().toLower();
     const QSet<QString> compressible{"png", "jpg", "jpeg", "webp"};
     const QSet<QString> convertible{"png", "jpg", "jpeg", "bmp", "webp"};
+    const QSet<QString> rotatable{"png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff"};
     for (auto& action : actions) {
       if (action.id == "image.compress" || action.id == "image.remove_metadata") {
         action.available = action.available && compressible.contains(suffix);
       } else if (action.id == "image.convert_webp") {
         action.available = action.available && convertible.contains(suffix);
+      } else if (action.id == "image.rotate_clockwise" ||
+                 action.id == "image.rotate_counterclockwise") {
+        action.available = action.available && rotatable.contains(suffix);
       }
     }
   }
