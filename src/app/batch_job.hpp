@@ -4,7 +4,6 @@
 #include <QStringList>
 
 #include <atomic>
-#include <utility>
 
 namespace omnidrop {
 
@@ -40,7 +39,7 @@ BatchProgress runSequentialBatch(const QStringList& paths,
       break;
     }
 
-    const bool ok = std::forward<Operation>(operation)(path);
+    const bool ok = operation(path);
     ++progress.processed;
     if (ok) {
       ++progress.succeeded;
@@ -48,7 +47,7 @@ BatchProgress runSequentialBatch(const QStringList& paths,
       ++progress.failed;
     }
     progress.currentPath = path;
-    std::forward<ProgressCallback>(onProgress)(progress);
+    onProgress(progress);
   }
 
   if (cancellation.stopRequested() && progress.processed < progress.total) {
