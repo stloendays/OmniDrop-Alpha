@@ -260,6 +260,23 @@ def pdf_split(path: Path) -> tuple[Path, int]:
 
 
 
+def pdf_rotate(path: Path, clockwise: bool) -> tuple[Path, int]:
+    from pypdf import PdfReader, PdfWriter
+
+    reader = PdfReader(str(path))
+    writer = PdfWriter()
+    angle = 90 if clockwise else 270
+
+    for page in reader.pages:
+        writer.add_page(page.rotate(angle))
+
+    marker = "rotated-cw" if clockwise else "rotated-ccw"
+    output = unique_output_path(path, marker, ".pdf")
+    with output.open("wb") as handle:
+        writer.write(handle)
+    return output, len(reader.pages)
+
+
 def pdf_merge(paths: list[Path]) -> tuple[Path, int]:
     from pypdf import PdfWriter
 
@@ -338,7 +355,13 @@ def capabilities() -> list[str]:
             ]
         )
     if pypdf_available():
-        actions.extend(["pdf.extract_text", "pdf.split", "pdf.merge"])
+        actions.extend([
+            "pdf.extract_text",
+            "pdf.split",
+            "pdf.rotate_clockwise",
+            "pdf.rotate_counterclockwise",
+            "pdf.merge",
+        ])
     return actions
 
 
@@ -442,6 +465,22 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
                 )
             except Exception as exc:
                 return fail(f"PDF split failed: {exc}", "pdf_error")
+        if action_id in {"pdf.rotate_clockwise", "pdf.rotate_counterclockwise"}:
+            if not pypdf_available():
+                return fail("pypdf is not installed for PDF processing.", "missing_dependency")
+            try:
+                output, page_count = pdf_rotate(
+                    path,
+                    clockwise=action_id == "pdf.rotate_clockwise",
+                )
+                return ok(
+                    action_id=action_id,
+                    path=str(path),
+                    output_path=str(output),
+                    page_count=page_count,
+                )
+            except Exception as exc:
+                return fail(f"PDF rotation failed: {exc}", "pdf_error")
         if action_id in {
             "image.compress",
             "image.convert_webp",
