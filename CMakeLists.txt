@@ -15,12 +15,13 @@ option(OMNIDROP_BUILD_TESTS "Build tests" ON)
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core)
 if(OMNIDROP_BUILD_GUI)
-  find_package(Qt6 6.5 REQUIRED COMPONENTS Widgets Concurrent)
+  find_package(Qt6 6.5 REQUIRED COMPONENTS Widgets Concurrent Network)
 endif()
 
 add_library(omnidrop_core
   src/domain/file_kind.cpp
   src/app/action_catalog.cpp
+  src/app/activation_protocol.cpp
   src/app/omnidrop_service.cpp
 )
 
@@ -37,6 +38,13 @@ target_include_directories(omnidrop_adapters PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/
 target_link_libraries(omnidrop_adapters PUBLIC omnidrop_core Qt6::Core)
 
 if(OMNIDROP_BUILD_GUI)
+  add_library(omnidrop_desktop
+    src/platform/single_instance_coordinator.cpp
+    src/platform/single_instance_coordinator.hpp
+  )
+  target_include_directories(omnidrop_desktop PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+  target_link_libraries(omnidrop_desktop PUBLIC omnidrop_core Qt6::Core Qt6::Network)
+
   set(OMNIDROP_GUI_SOURCES
     src/gui/main.cpp
     src/gui/main_window.cpp
@@ -55,7 +63,13 @@ if(OMNIDROP_BUILD_GUI)
   endif()
 
   add_executable(omnidrop WIN32 ${OMNIDROP_GUI_SOURCES})
-  target_link_libraries(omnidrop PRIVATE omnidrop_core omnidrop_adapters Qt6::Widgets Qt6::Concurrent)
+  target_link_libraries(omnidrop PRIVATE
+    omnidrop_core
+    omnidrop_adapters
+    omnidrop_desktop
+    Qt6::Widgets
+    Qt6::Concurrent
+  )
   set_target_properties(omnidrop PROPERTIES OUTPUT_NAME "OmniDrop")
 endif()
 
@@ -71,11 +85,21 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   target_link_libraries(omnidrop_core_tests PRIVATE omnidrop_core Qt6::Core)
   add_test(NAME omnidrop_core_tests COMMAND omnidrop_core_tests)
 
+  add_executable(omnidrop_activation_protocol_tests tests/activation_protocol_tests.cpp)
+  target_link_libraries(omnidrop_activation_protocol_tests PRIVATE omnidrop_core Qt6::Core)
+  add_test(NAME omnidrop_activation_protocol_tests COMMAND omnidrop_activation_protocol_tests)
+
   if(TARGET omnidrop_cli)
     add_test(NAME omnidrop_cli_version COMMAND omnidrop_cli --version)
     set_tests_properties(omnidrop_cli_version PROPERTIES
       PASS_REGULAR_EXPRESSION "^${PROJECT_VERSION}"
     )
+  endif()
+
+  if(TARGET omnidrop_desktop)
+    add_executable(omnidrop_single_instance_tests tests/single_instance_tests.cpp)
+    target_link_libraries(omnidrop_single_instance_tests PRIVATE omnidrop_desktop Qt6::Core)
+    add_test(NAME omnidrop_single_instance_tests COMMAND omnidrop_single_instance_tests)
   endif()
 
   if(WIN32 AND TARGET omnidrop)
