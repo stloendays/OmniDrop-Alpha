@@ -96,6 +96,30 @@ Future long-running jobs must move to a framed persistent protocol or local IPC 
 explicit job IDs, progress events, cancellation, timeout, and crash recovery. Do not overload this
 one-shot v1 protocol silently.
 
+## Desktop activation protocol v1
+
+The desktop application uses a local, per-user Qt IPC endpoint for single-instance activation.
+It does not open a TCP/UDP listener. A second launch forwards its file-open intent to the existing
+process and exits instead of creating a second interactive instance.
+
+Request:
+
+```json
+{"schema_version":1,"command":"app.activate","paths":["C:/data/a.pdf","C:/data/b.pdf"]}
+```
+
+Rules:
+
+- `schema_version=1` and `command=app.activate` are stable local IPC contracts;
+- `paths` preserves command-line order and may be empty when the intent is only to focus the app;
+- only string path values are accepted;
+- the local server uses the current-user access option;
+- malformed or unknown activation messages are ignored rather than executed;
+- after an unclean exit, a stale local endpoint may be removed only after connection retries fail.
+
+The first instance owns file validation and normal application semantics after receiving the paths.
+The activation channel is lifecycle IPC, not a general-purpose remote-control API.
+
 ## File safety
 
 Transforms are non-destructive by default. The worker allocates a unique sibling path or output

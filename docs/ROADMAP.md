@@ -110,12 +110,19 @@ Next:
 
 ## Phase 2 - Windows integration
 
+Implemented:
+
+- Windows executable identity, version metadata, and application icon;
+- single-instance activation through a current-user local IPC endpoint;
+- second-launch file-open forwarding to the existing window.
+
+Next:
+
 - Explorer context menu;
 - Send to OmniDrop;
 - richer command palette;
 - persistent batch queue;
-- single-instance activation;
-- file/deep-link entry points where useful.
+- URL/deep-link entry points where useful.
 
 Tray/background mode will only be added if a real long-running workflow requires it; OmniDrop
 should not stay resident merely for decoration.

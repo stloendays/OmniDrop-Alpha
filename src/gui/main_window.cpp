@@ -208,6 +208,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   probeWorkerCapabilities();
 }
 
+void MainWindow::openPaths(const QStringList& paths) {
+  inspectPaths(paths);
+}
+
 QString MainWindow::formatSize(qint64 bytes) const {
   const double kib = 1024.0, mib = kib * 1024.0, gib = mib * 1024.0;
   if (bytes >= gib) return QString::number(bytes / gib, 'f', 2) + " GB";
