@@ -15,7 +15,7 @@ Application
         |
 Domain
   - FileKind
-  - ActionDescriptor
+  - ActionDescriptor / ActionScope
         |
 Adapters
   - PythonWorkerClient
@@ -58,11 +58,21 @@ The Python worker is stateless. The host sends one JSON object on stdin and rece
 object on stdout. This keeps lifecycle, UI state, history, and user-facing semantics owned by the
 C++ host.
 
-Example request:
+Per-file request:
 
 ```json
 {"command":"run","action_id":"file.sha256","path":"C:/data/report.pdf"}
 ```
+
+Ordered batch request:
+
+```json
+{"command":"run_batch","action_id":"pdf.merge","paths":["C:/data/a.pdf","C:/data/b.pdf"]}
+```
+
+Batch commands are additive protocol-v1 commands. A batch-scoped action consumes the full ordered
+`paths` list as one operation; callers must not emulate it by independently invoking `run` for
+each file.
 
 Capability request:
 
