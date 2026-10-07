@@ -2,7 +2,11 @@
 
 #include "gui/drop_zone.hpp"
 
+#include "adapters/diagnostics_service.hpp"
+
 #include <QAction>
+#include <QApplication>
+#include <QClipboard>
 #include <QColor>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -140,6 +144,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   auto* clearActivity = historyMenu->addAction("Clear activity");
 
   auto* helpMenu = menuBar()->addMenu("Help");
+  auto* copyDiagnosticsAction = helpMenu->addAction("Copy diagnostics");
+  helpMenu->addSeparator();
   auto* aboutAction = helpMenu->addAction("About OmniDrop");
 
   const auto chooseFiles = [this] {
@@ -173,6 +179,20 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   });
   connect(clearRecent, &QAction::triggered, this, [this] { recentFiles_.clear(); refreshRecentFiles(); });
   connect(clearActivity, &QAction::triggered, this, [this] { history_.clear(); refreshHistory(); });
+  connect(copyDiagnosticsAction, &QAction::triggered, this, [this] {
+    statusLabel_->setText("Collecting diagnostics...");
+    auto* watcher = new QFutureWatcher<QByteArray>(this);
+    connect(watcher, &QFutureWatcher<QByteArray>::finished, this, [this, watcher] {
+      const auto payload = watcher->result();
+      watcher->deleteLater();
+      QApplication::clipboard()->setText(QString::fromUtf8(payload));
+      statusLabel_->setText("Diagnostics copied to clipboard.");
+    });
+    watcher->setFuture(QtConcurrent::run([] {
+      DiagnosticsService diagnostics;
+      return diagnostics.collectJson(QJsonDocument::Indented);
+    }));
+  });
   connect(aboutAction, &QAction::triggered, this, [this] {
     QMessageBox::about(this, "About OmniDrop",
       QString("<b>OmniDrop %1</b><br><br>Local-first file utilities. Core operations do not require an account or file upload.")
