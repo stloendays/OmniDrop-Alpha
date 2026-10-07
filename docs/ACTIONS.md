@@ -22,6 +22,8 @@ alias when semantics genuinely change.
 | `pdf.compress` | PDF | planned | PDF adapter | TBD |
 | `pdf.extract_text` | PDF | implemented | pypdf | new `.txt` sibling file |
 | `pdf.split` | PDF | implemented | pypdf | new output directory |
+| `pdf.rotate_clockwise` | PDF | implemented | pypdf | new sibling PDF with every page rotated 90° clockwise |
+| `pdf.rotate_counterclockwise` | PDF | implemented | pypdf | new sibling PDF with every page rotated 90° counterclockwise |
 | `pdf.merge` | 2+ PDFs | implemented | pypdf | one merged sibling PDF; selected input order is preserved |
 | `pdf.extract_images` | PDF | planned | PDF adapter | TBD |
 | `video.compress` | video | planned | FFmpeg | TBD |
@@ -41,6 +43,12 @@ Actions have an explicit execution scope:
 
 `pdf.merge` is a batch action. It requires at least two PDF files and preserves the selection order
 when appending pages. The input PDFs are not modified.
+
+## PDF rotation semantics
+
+PDF rotation actions use page-level 90-degree rotation metadata through pypdf, apply the same
+direction to every page, preserve the source PDF, and write a new sibling PDF. Clockwise rotation
+adds 90 degrees; counterclockwise rotation adds 270 degrees modulo 360.
 
 ## Image rotation semantics
 
