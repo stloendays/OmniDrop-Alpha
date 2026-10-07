@@ -31,7 +31,7 @@ QJsonObject buildDiagnosticsSnapshot(const WorkerDiagnosticsInput& worker) {
   const QJsonObject appObject{
       {"name", "OmniDrop"},
       {"version", QCoreApplication::applicationVersion().isEmpty()
-                      ? QStringLiteral(OMNIDROP_VERSION)
+                      ? QString::fromLatin1(OMNIDROP_VERSION)
                       : QCoreApplication::applicationVersion()},
   };
 
