@@ -35,8 +35,10 @@ QList<ActionDescriptor> ActionCatalog::recommendedActions(FileKind kind) const {
       actions = {
           action("image.compress", "Compress image", "Reduce file size while preserving useful quality.", 10, true, "python-pillow"),
           action("image.convert_webp", "Convert to WebP", "Create a web-friendly WebP copy.", 20, true, "python-pillow"),
-          action("image.remove_metadata", "Remove metadata", "Strip EXIF and other embedded metadata.", 30, true, "python-pillow"),
-          action("image.ocr", "Extract text (OCR)", "Recognize text contained in the image.", 40),
+          action("image.rotate_clockwise", "Rotate 90° clockwise", "Create a copy rotated 90 degrees clockwise.", 30, true, "python-pillow"),
+          action("image.rotate_counterclockwise", "Rotate 90° counterclockwise", "Create a copy rotated 90 degrees counterclockwise.", 31, true, "python-pillow"),
+          action("image.remove_metadata", "Remove metadata", "Strip EXIF and other embedded metadata.", 40, true, "python-pillow"),
+          action("image.ocr", "Extract text (OCR)", "Recognize text contained in the image.", 50),
       };
       break;
     case FileKind::Pdf:
