@@ -130,8 +130,15 @@ should not stay resident merely for decoration.
 
 ## Phase 3 - product reliability
 
+Implemented:
+
+- versioned structured diagnostics snapshot through CLI and GUI clipboard copy;
+- diagnostics worker/runtime status without user file paths or file contents.
+
+Next:
+
 - durable settings export/import/reset/recovery;
-- diagnostics bundle and structured logs;
+- structured/rotating logs and diagnostics bundle export;
 - richer action history/event timeline;
 - job IDs, cancellation, and progress for long-running work;
 - crash/startup recovery;
