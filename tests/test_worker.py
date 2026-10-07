@@ -22,6 +22,8 @@ class WorkerTests(unittest.TestCase):
         self.assertIn("text.format_json", result["actions"])
         self.assertIn("text.format_xml", result["actions"])
         self.assertIn("archive.extract", result["actions"])
+        if worker.pypdf_available():
+            self.assertIn("pdf.merge", result["actions"])
 
     def test_sha256(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -87,6 +89,70 @@ class WorkerTests(unittest.TestCase):
             rendered = output.read_text(encoding="utf-8")
             self.assertIn("<root>", rendered)
             self.assertIn('  <item id="1">x</item>', rendered)
+
+    @unittest.skipUnless(worker.pypdf_available(), "pypdf is not installed")
+    def test_pdf_merge_preserves_inputs_and_order(self):
+        from pypdf import PdfReader, PdfWriter
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = root / "first.pdf"
+            second = root / "second.pdf"
+
+            writer = PdfWriter()
+            writer.add_blank_page(width=100, height=100)
+            writer.add_blank_page(width=110, height=110)
+            with first.open("wb") as handle:
+                writer.write(handle)
+
+            writer = PdfWriter()
+            writer.add_blank_page(width=200, height=200)
+            with second.open("wb") as handle:
+                writer.write(handle)
+
+            first_before = first.read_bytes()
+            second_before = second.read_bytes()
+
+            result = worker.handle(
+                {
+                    "command": "run_batch",
+                    "action_id": "pdf.merge",
+                    "paths": [str(first), str(second)],
+                }
+            )
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["input_count"], 2)
+            self.assertEqual(result["page_count"], 3)
+            self.assertEqual(first.read_bytes(), first_before)
+            self.assertEqual(second.read_bytes(), second_before)
+
+            merged = PdfReader(result["output_path"])
+            self.assertEqual(len(merged.pages), 3)
+            self.assertEqual(float(merged.pages[0].mediabox.width), 100.0)
+            self.assertEqual(float(merged.pages[1].mediabox.width), 110.0)
+            self.assertEqual(float(merged.pages[2].mediabox.width), 200.0)
+
+    @unittest.skipUnless(worker.pypdf_available(), "pypdf is not installed")
+    def test_pdf_merge_requires_two_inputs(self):
+        from pypdf import PdfWriter
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "one.pdf"
+            writer = PdfWriter()
+            writer.add_blank_page(width=100, height=100)
+            with path.open("wb") as handle:
+                writer.write(handle)
+
+            result = worker.handle(
+                {
+                    "command": "run_batch",
+                    "action_id": "pdf.merge",
+                    "paths": [str(path)],
+                }
+            )
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["error"]["code"], "invalid_request")
 
     def test_zip_inspect_and_extract(self):
         with tempfile.TemporaryDirectory() as directory:
