@@ -150,7 +150,7 @@ int main(int argc, char* argv[]) {
 
     omnidrop::OmniDropService service;
     const auto batch = service.inspectMany(paths, parseCapabilities(capabilityResult));
-    printActions(batch.commonActions, out);
+    printActions(batch.actions, out);
     return 0;
   }
 
@@ -201,7 +201,7 @@ int main(int argc, char* argv[]) {
 
     omnidrop::OmniDropService service;
     const auto batch = service.inspectMany(paths, parseCapabilities(capabilityResult));
-    const auto* action = findAction(batch.commonActions, actionId);
+    const auto* action = findAction(batch.actions, actionId);
     if (action == nullptr) {
       err << "Action is not applicable to every selected file: " << actionId << '\n';
       return 4;
@@ -213,8 +213,9 @@ int main(int argc, char* argv[]) {
 
     QJsonArray results;
     bool allOk = true;
-    for (const auto& path : paths) {
-      const auto result = worker.runAction(actionId, path);
+
+    if (action->scope == omnidrop::ActionScope::Batch) {
+      const auto result = worker.runBatchAction(actionId, paths);
       if (result.ok) {
         const auto document = QJsonDocument::fromJson(result.output.toUtf8());
         if (document.isObject()) {
@@ -223,7 +224,6 @@ int main(int argc, char* argv[]) {
           allOk = false;
           results.append(QJsonObject{
               {"ok", false},
-              {"path", path},
               {"error", "Worker returned invalid JSON."},
           });
         }
@@ -231,9 +231,32 @@ int main(int argc, char* argv[]) {
         allOk = false;
         results.append(QJsonObject{
             {"ok", false},
-            {"path", path},
             {"error", result.error},
         });
+      }
+    } else {
+      for (const auto& path : paths) {
+        const auto result = worker.runAction(actionId, path);
+        if (result.ok) {
+          const auto document = QJsonDocument::fromJson(result.output.toUtf8());
+          if (document.isObject()) {
+            results.append(document.object());
+          } else {
+            allOk = false;
+            results.append(QJsonObject{
+                {"ok", false},
+                {"path", path},
+                {"error", "Worker returned invalid JSON."},
+            });
+          }
+        } else {
+          allOk = false;
+          results.append(QJsonObject{
+              {"ok", false},
+              {"path", path},
+              {"error", result.error},
+          });
+        }
       }
     }
 
