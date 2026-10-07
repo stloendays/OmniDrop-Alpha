@@ -37,11 +37,24 @@ target_include_directories(omnidrop_adapters PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/
 target_link_libraries(omnidrop_adapters PUBLIC omnidrop_core Qt6::Core)
 
 if(OMNIDROP_BUILD_GUI)
-  add_executable(omnidrop WIN32
+  set(OMNIDROP_GUI_SOURCES
     src/gui/main.cpp
     src/gui/main_window.cpp
     src/gui/drop_zone.cpp
+    assets/resources.qrc
   )
+
+  if(WIN32)
+    set(OMNIDROP_ICON_RC_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets/windows/omnidrop.ico")
+    configure_file(
+      assets/windows/omnidrop.rc.in
+      "${CMAKE_CURRENT_BINARY_DIR}/omnidrop.rc"
+      @ONLY
+    )
+    list(APPEND OMNIDROP_GUI_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/omnidrop.rc")
+  endif()
+
+  add_executable(omnidrop WIN32 ${OMNIDROP_GUI_SOURCES})
   target_link_libraries(omnidrop PRIVATE omnidrop_core omnidrop_adapters Qt6::Widgets Qt6::Concurrent)
   set_target_properties(omnidrop PROPERTIES OUTPUT_NAME "OmniDrop")
 endif()
@@ -62,6 +75,16 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
     add_test(NAME omnidrop_cli_version COMMAND omnidrop_cli --version)
     set_tests_properties(omnidrop_cli_version PROPERTIES
       PASS_REGULAR_EXPRESSION "^${PROJECT_VERSION}"
+    )
+  endif()
+
+  if(WIN32 AND TARGET omnidrop)
+    add_test(
+      NAME omnidrop_windows_identity
+      COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+              -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_windows_identity.ps1"
+              -Executable "$<TARGET_FILE:omnidrop>"
+              -ExpectedVersion "${PROJECT_VERSION}"
     )
   endif()
 endif()
