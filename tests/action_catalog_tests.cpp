@@ -37,22 +37,41 @@ int main(int argc, char** argv) {
       "file.sha256",
       "text.normalize",
       "text.deduplicate",
+      "text.format_json",
+      "text.format_xml",
       "image.compress",
       "image.convert_webp",
       "image.remove_metadata",
+      "pdf.extract_text",
+      "pdf.split",
+      "pdf.merge",
   };
 
   const auto twoText = service.inspectMany({"a.txt", "b.md"}, runtimeActions);
   bool batchHasNormalize = false;
-  for (const auto& action : twoText.commonActions) {
+  for (const auto& action : twoText.actions) {
     batchHasNormalize |= action.id == "text.normalize" && action.available;
   }
   assert(batchHasNormalize);
 
   const auto mixed = service.inspectMany({"a.txt", "b.png"}, runtimeActions);
-  assert(mixed.commonActions.size() == 1);
-  assert(mixed.commonActions.first().id == "file.sha256");
-  assert(mixed.commonActions.first().available);
+  assert(mixed.actions.size() == 1);
+  assert(mixed.actions.first().id == "file.sha256");
+  assert(mixed.actions.first().available);
+
+  const auto twoPdf = service.inspectMany({"a.pdf", "b.pdf"}, runtimeActions);
+  bool hasMerge = false;
+  for (const auto& action : twoPdf.actions) {
+    if (action.id == "pdf.merge") {
+      hasMerge = action.available && action.scope == ActionScope::Batch;
+    }
+  }
+  assert(hasMerge);
+
+  const auto onePdf = service.inspectMany({"a.pdf"}, runtimeActions);
+  for (const auto& action : onePdf.actions) {
+    assert(action.id != "pdf.merge");
+  }
 
   return 0;
 }

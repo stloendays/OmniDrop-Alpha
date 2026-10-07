@@ -20,6 +20,7 @@ alias when semantics genuinely change.
 | `pdf.compress` | PDF | planned | PDF adapter | TBD |
 | `pdf.extract_text` | PDF | implemented | pypdf | new `.txt` sibling file |
 | `pdf.split` | PDF | implemented | pypdf | new output directory |
+| `pdf.merge` | 2+ PDFs | implemented | pypdf | one merged sibling PDF; selected input order is preserved |
 | `pdf.extract_images` | PDF | planned | PDF adapter | TBD |
 | `video.compress` | video | planned | FFmpeg | TBD |
 | `video.extract_audio` | video | planned | FFmpeg | TBD |
@@ -28,6 +29,16 @@ alias when semantics genuinely change.
 | `audio.compress` | audio | planned | FFmpeg | TBD |
 | `archive.inspect` | ZIP | implemented | Python stdlib | new inventory `.txt` file |
 | `archive.extract` | ZIP | implemented | Python stdlib | new output directory |
+
+## Action scope
+
+Actions have an explicit execution scope:
+
+- **per-file** actions run independently for each selected source file;
+- **batch** actions consume the ordered selection as one operation and produce one combined result.
+
+`pdf.merge` is a batch action. It requires at least two PDF files and preserves the selection order
+when appending pages. The input PDFs are not modified.
 
 ## Runtime availability
 

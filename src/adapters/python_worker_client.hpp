@@ -2,6 +2,7 @@
 
 #include <QByteArray>
 #include <QString>
+#include <QStringList>
 
 namespace omnidrop {
 
@@ -18,6 +19,7 @@ class PythonWorkerClient {
   WorkerResult ping() const;
   WorkerResult capabilities() const;
   WorkerResult runAction(const QString& actionId, const QString& path) const;
+  WorkerResult runBatchAction(const QString& actionId, const QStringList& paths) const;
 
  private:
   WorkerResult invoke(const QByteArray& request) const;

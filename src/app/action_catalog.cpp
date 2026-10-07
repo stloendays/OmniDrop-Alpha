@@ -7,8 +7,17 @@ namespace omnidrop {
 namespace {
 
 ActionDescriptor action(QString id, QString label, QString description, int priority,
-                        bool available = false, QString backend = "planned") {
-  return {std::move(id), std::move(label), std::move(description), priority, available, std::move(backend)};
+                        bool available = false, QString backend = "planned",
+                        ActionScope scope = ActionScope::PerFile) {
+  return {
+      std::move(id),
+      std::move(label),
+      std::move(description),
+      priority,
+      available,
+      std::move(backend),
+      scope,
+  };
 }
 
 QList<ActionDescriptor> commonActions() {
@@ -73,6 +82,26 @@ QList<ActionDescriptor> ActionCatalog::recommendedActions(FileKind kind) const {
   actions.append(commonActions());
   std::sort(actions.begin(), actions.end(), [](const auto& a, const auto& b) { return a.priority < b.priority; });
   return actions;
+}
+
+QList<ActionDescriptor> ActionCatalog::recommendedBatchActions(const QList<FileKind>& kinds) const {
+  if (kinds.size() < 2) return {};
+
+  const bool allPdf = std::all_of(kinds.begin(), kinds.end(), [](FileKind kind) {
+    return kind == FileKind::Pdf;
+  });
+  if (!allPdf) return {};
+
+  return {
+      action(
+          "pdf.merge",
+          "Merge PDFs",
+          "Combine selected PDFs into one document in the current selection order.",
+          5,
+          true,
+          "python-pypdf",
+          ActionScope::Batch),
+  };
 }
 
 }  // namespace omnidrop
