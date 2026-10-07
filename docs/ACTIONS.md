@@ -11,6 +11,8 @@ alias when semantics genuinely change.
 | `file.sha256` | any | implemented | Python stdlib | no file output; returns digest |
 | `text.normalize` | text/developer | implemented | Python stdlib | new sibling file |
 | `text.deduplicate` | text/developer | implemented | Python stdlib | new sibling file |
+| `text.format_json` | JSON | implemented | Python stdlib | validated, pretty-printed sibling `.json` file |
+| `text.format_xml` | XML | implemented | Python stdlib | parsed, indented sibling `.xml` file |
 | `image.compress` | image | implemented | Pillow | new sibling file |
 | `image.convert_webp` | image | implemented | Pillow | new `.webp` sibling file |
 | `image.remove_metadata` | image | implemented | Pillow | new sibling file |
