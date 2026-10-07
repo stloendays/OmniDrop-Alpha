@@ -4,14 +4,18 @@
 #include "adapters/python_worker_client.hpp"
 #include "adapters/recent_files_store.hpp"
 #include "app/omnidrop_service.hpp"
+#include "app/batch_job.hpp"
 
 #include <QMainWindow>
 #include <QSet>
+
+#include <memory>
 
 class QLabel;
 class QLineEdit;
 class QListWidget;
 class QPushButton;
+class QProgressBar;
 
 namespace omnidrop {
 
@@ -32,6 +36,8 @@ class MainWindow final : public QMainWindow {
   void refreshRecentFiles();
   void refreshHistory();
   void filterActions(const QString& query);
+  void setOperationRunning(bool running, bool cancellable, int totalItems = 0);
+  void requestStopCurrentBatch();
   QString formatSize(qint64 bytes) const;
 
   OmniDropService service_;
@@ -41,6 +47,8 @@ class MainWindow final : public QMainWindow {
   BatchInspection currentBatch_;
   QSet<QString> runtimeCapabilities_;
   bool capabilityProbeComplete_{false};
+  bool operationRunning_{false};
+  std::shared_ptr<BatchCancellation> currentCancellation_;
 
   DropZone* dropZone_{nullptr};
   QLabel* fileTitle_{nullptr};
@@ -52,6 +60,8 @@ class MainWindow final : public QMainWindow {
   QListWidget* historyList_{nullptr};
   QLabel* historyTitle_{nullptr};
   QPushButton* runButton_{nullptr};
+  QPushButton* stopButton_{nullptr};
+  QProgressBar* progressBar_{nullptr};
   QLabel* statusLabel_{nullptr};
 };
 
