@@ -25,7 +25,8 @@ class MainWindow final : public QMainWindow {
 
  private:
   void inspectPath(const QString& path);
-  void showInspection(const FileInspection& inspection);
+  void inspectPaths(const QStringList& paths);
+  void showBatchInspection(const BatchInspection& inspection);
   void runSelectedAction();
   void probeWorkerCapabilities();
   void refreshRecentFiles();
@@ -37,7 +38,7 @@ class MainWindow final : public QMainWindow {
   PythonWorkerClient worker_;
   RecentFilesStore recentFiles_;
   ActionHistoryStore history_;
-  FileInspection current_;
+  BatchInspection currentBatch_;
   QSet<QString> runtimeCapabilities_;
   bool capabilityProbeComplete_{false};
 
