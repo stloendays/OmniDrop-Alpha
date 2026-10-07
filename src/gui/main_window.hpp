@@ -26,6 +26,7 @@ class MainWindow final : public QMainWindow {
 
  public:
   explicit MainWindow(QWidget* parent = nullptr);
+  void openPaths(const QStringList& paths);
 
  private:
   void inspectPath(const QString& path);
