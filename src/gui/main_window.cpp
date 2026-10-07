@@ -15,6 +15,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenuBar>
+#include <QMetaObject>
 #include <QMessageBox>
 #include <QPair>
 #include <QProgressBar>
@@ -363,11 +364,13 @@ void MainWindow::setOperationRunning(bool running, bool cancellable, int totalIt
     currentCancellation_ = std::make_shared<BatchCancellation>();
     progressBar_->setRange(0, totalItems);
     progressBar_->setValue(0);
+    progressBar_->setFormat("%v / %m");
     stopButton_->setEnabled(true);
     stopButton_->show();
   } else {
     currentCancellation_.reset();
     progressBar_->setRange(0, 0);
+    progressBar_->setFormat("Working...");
     stopButton_->hide();
   }
 }
