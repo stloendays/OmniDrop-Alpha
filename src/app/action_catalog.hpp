@@ -10,6 +10,7 @@ namespace omnidrop {
 class ActionCatalog {
  public:
   QList<ActionDescriptor> recommendedActions(FileKind kind) const;
+  QList<ActionDescriptor> recommendedBatchActions(const QList<FileKind>& kinds) const;
 };
 
 }  // namespace omnidrop
