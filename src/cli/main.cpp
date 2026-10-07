@@ -18,8 +18,10 @@ int usage() {
       << "  omnidrop-cli --version\n"
       << "  omnidrop-cli inspect <file>\n"
       << "  omnidrop-cli actions <file>\n"
+      << "  omnidrop-cli batch-actions <file> <file> [...]\n"
       << "  omnidrop-cli capabilities\n"
       << "  omnidrop-cli run <action-id> <file>\n"
+      << "  omnidrop-cli batch-run <action-id> <file> <file> [...]\n"
       << "  omnidrop-cli worker-ping\n";
   return 1;
 }
@@ -44,12 +46,28 @@ bool validateInputFile(const QString& path, QTextStream& err) {
   return true;
 }
 
-const omnidrop::ActionDescriptor* findAction(const omnidrop::FileInspection& inspection,
+bool validateInputFiles(const QStringList& paths, QTextStream& err) {
+  for (const auto& path : paths) {
+    if (!validateInputFile(path, err)) return false;
+  }
+  return true;
+}
+
+const omnidrop::ActionDescriptor* findAction(const QList<omnidrop::ActionDescriptor>& actions,
                                              const QString& actionId) {
-  for (const auto& action : inspection.actions) {
+  for (const auto& action : actions) {
     if (action.id == actionId) return &action;
   }
   return nullptr;
+}
+
+void printActions(const QList<omnidrop::ActionDescriptor>& actions, QTextStream& out) {
+  for (const auto& action : actions) {
+    const auto state = action.available ? QStringLiteral("available")
+                                        : (action.backend == "planned" ? QStringLiteral("planned")
+                                                                        : QStringLiteral("unavailable"));
+    out << action.id << '\t' << action.label << '\t' << state << '\t' << action.backend << '\n';
+  }
 }
 
 }  // namespace
@@ -114,14 +132,25 @@ int main(int argc, char* argv[]) {
       return 2;
     }
 
-    const auto runtimeCapabilities = parseCapabilities(capabilityResult);
-    const auto inspection = service.inspect(args.at(2), runtimeCapabilities);
-    for (const auto& action : inspection.actions) {
-      const auto state = action.available ? QStringLiteral("available")
-                                          : (action.backend == "planned" ? QStringLiteral("planned")
-                                                                          : QStringLiteral("unavailable"));
-      out << action.id << '\t' << action.label << '\t' << state << '\t' << action.backend << '\n';
+    const auto inspection = service.inspect(args.at(2), parseCapabilities(capabilityResult));
+    printActions(inspection.actions, out);
+    return 0;
+  }
+
+  if (command == "batch-actions" && args.size() >= 4) {
+    const QStringList paths = args.mid(2);
+    if (!validateInputFiles(paths, err)) return 3;
+
+    omnidrop::PythonWorkerClient worker;
+    const auto capabilityResult = worker.capabilities();
+    if (!capabilityResult.ok) {
+      err << capabilityResult.error << '\n';
+      return 2;
     }
+
+    omnidrop::OmniDropService service;
+    const auto batch = service.inspectMany(paths, parseCapabilities(capabilityResult));
+    printActions(batch.commonActions, out);
     return 0;
   }
 
@@ -139,7 +168,7 @@ int main(int argc, char* argv[]) {
 
     omnidrop::OmniDropService service;
     const auto inspection = service.inspect(path, parseCapabilities(capabilityResult));
-    const auto* action = findAction(inspection, actionId);
+    const auto* action = findAction(inspection.actions, actionId);
     if (action == nullptr) {
       err << "Action is not applicable to this file type: " << actionId << '\n';
       return 4;
@@ -156,6 +185,66 @@ int main(int argc, char* argv[]) {
     }
     out << result.output << '\n';
     return 0;
+  }
+
+  if (command == "batch-run" && args.size() >= 5) {
+    const auto actionId = args.at(2);
+    const QStringList paths = args.mid(3);
+    if (!validateInputFiles(paths, err)) return 3;
+
+    omnidrop::PythonWorkerClient worker;
+    const auto capabilityResult = worker.capabilities();
+    if (!capabilityResult.ok) {
+      err << capabilityResult.error << '\n';
+      return 2;
+    }
+
+    omnidrop::OmniDropService service;
+    const auto batch = service.inspectMany(paths, parseCapabilities(capabilityResult));
+    const auto* action = findAction(batch.commonActions, actionId);
+    if (action == nullptr) {
+      err << "Action is not applicable to every selected file: " << actionId << '\n';
+      return 4;
+    }
+    if (!action->available) {
+      err << "Action is not currently available for every selected file: " << actionId << '\n';
+      return 5;
+    }
+
+    QJsonArray results;
+    bool allOk = true;
+    for (const auto& path : paths) {
+      const auto result = worker.runAction(actionId, path);
+      if (result.ok) {
+        const auto document = QJsonDocument::fromJson(result.output.toUtf8());
+        if (document.isObject()) {
+          results.append(document.object());
+        } else {
+          allOk = false;
+          results.append(QJsonObject{
+              {"ok", false},
+              {"path", path},
+              {"error", "Worker returned invalid JSON."},
+          });
+        }
+      } else {
+        allOk = false;
+        results.append(QJsonObject{
+            {"ok", false},
+            {"path", path},
+            {"error", result.error},
+        });
+      }
+    }
+
+    const QJsonObject payload{
+        {"ok", allOk},
+        {"action_id", actionId},
+        {"count", paths.size()},
+        {"results", results},
+    };
+    out << QJsonDocument(payload).toJson(QJsonDocument::Compact) << '\n';
+    return allOk ? 0 : 2;
   }
 
   return usage();
