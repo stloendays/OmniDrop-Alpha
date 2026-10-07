@@ -1,0 +1,32 @@
+name: Bug report
+description: Report reproducible OmniDrop behavior that is incorrect.
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the behavior and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      placeholder: "1. Open OmniDrop\n2. Drop ...\n3. Run ..."
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: OmniDrop version or commit
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Relevant error text or diagnostics
+      description: Do not attach sensitive files unless you are comfortable sharing them publicly.

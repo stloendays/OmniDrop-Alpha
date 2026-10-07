@@ -1,0 +1,57 @@
+#pragma once
+
+#include "adapters/action_history_store.hpp"
+#include "adapters/python_worker_client.hpp"
+#include "adapters/recent_files_store.hpp"
+#include "app/omnidrop_service.hpp"
+
+#include <QMainWindow>
+#include <QSet>
+
+class QLabel;
+class QLineEdit;
+class QListWidget;
+class QPushButton;
+
+namespace omnidrop {
+
+class DropZone;
+
+class MainWindow final : public QMainWindow {
+  Q_OBJECT
+
+ public:
+  explicit MainWindow(QWidget* parent = nullptr);
+
+ private:
+  void inspectPath(const QString& path);
+  void showInspection(const FileInspection& inspection);
+  void runSelectedAction();
+  void probeWorkerCapabilities();
+  void refreshRecentFiles();
+  void refreshHistory();
+  void filterActions(const QString& query);
+  QString formatSize(qint64 bytes) const;
+
+  OmniDropService service_;
+  PythonWorkerClient worker_;
+  RecentFilesStore recentFiles_;
+  ActionHistoryStore history_;
+  FileInspection current_;
+  QSet<QString> runtimeCapabilities_;
+  bool capabilityProbeComplete_{false};
+
+  DropZone* dropZone_{nullptr};
+  QLabel* fileTitle_{nullptr};
+  QLabel* fileMeta_{nullptr};
+  QLineEdit* actionSearch_{nullptr};
+  QListWidget* actionList_{nullptr};
+  QListWidget* recentList_{nullptr};
+  QLabel* recentTitle_{nullptr};
+  QListWidget* historyList_{nullptr};
+  QLabel* historyTitle_{nullptr};
+  QPushButton* runButton_{nullptr};
+  QLabel* statusLabel_{nullptr};
+};
+
+}  // namespace omnidrop

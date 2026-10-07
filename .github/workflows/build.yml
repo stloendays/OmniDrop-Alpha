@@ -1,0 +1,64 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          cache: true
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Install Python worker dependencies
+        run: python -m pip install -r python/requirements.txt
+      - name: Python worker tests
+        run: python -m unittest discover -s tests -p "test_worker.py"
+      - name: Stage Windows development package
+        shell: pwsh
+        run: |
+          cmake --install build --config Release --prefix package
+          python -m pip install --target package/python/vendor -r python/requirements.txt
+          Compress-Archive -Path package/* -DestinationPath OmniDrop-windows-dev.zip -Force
+      - name: Upload Windows development package
+        uses: actions/upload-artifact@v4
+        with:
+          name: OmniDrop-windows-dev
+          path: OmniDrop-windows-dev.zip
+
+  linux-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          cache: true
+      - name: Configure
+        run: cmake -S . -B build -DOMNIDROP_BUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Install Python worker dependencies
+        run: python3 -m pip install -r python/requirements.txt
+      - name: Python worker tests
+        run: python3 -m unittest discover -s tests -p "test_worker.py"

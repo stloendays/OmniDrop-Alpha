@@ -1,0 +1,29 @@
+name: Feature request
+description: Propose a file workflow or product capability.
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: What recurring file task should become easier?
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Desired workflow
+      description: Describe the input, action, and expected output.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Useful surfaces
+      multiple: true
+      options:
+        - GUI
+        - CLI
+        - Explorer integration
+        - Automation / agent API
