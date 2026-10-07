@@ -141,12 +141,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   connect(actionSearch_, &QLineEdit::textChanged, this, &MainWindow::filterActions);
   connect(runButton_, &QPushButton::clicked, this, &MainWindow::runSelectedAction);
   connect(actionList_, &QListWidget::currentRowChanged, this, [this](int row) {
-    const bool valid = row >= 0 && row < currentBatch_.commonActions.size() &&
+    const bool valid = row >= 0 && row < currentBatch_.actions.size() &&
                        !actionList_->item(row)->isHidden() &&
-                       currentBatch_.commonActions.at(row).available;
+                       currentBatch_.actions.at(row).available;
     runButton_->setEnabled(valid);
     if (valid) {
-      const auto& action = currentBatch_.commonActions.at(row);
+      const auto& action = currentBatch_.actions.at(row);
       runButton_->setText(currentBatch_.paths.size() > 1
           ? QString("Run %1 on %2 files").arg(action.label).arg(currentBatch_.paths.size())
           : QString("Run %1").arg(action.label));
@@ -271,7 +271,7 @@ void MainWindow::showBatchInspection(const BatchInspection& inspection) {
     kindNames.sort();
 
     fileTitle_->setText(QString("%1 files selected").arg(inspection.files.size()));
-    fileMeta_->setText(QString("%1  /  %2  /  common actions")
+    fileMeta_->setText(QString("%1  /  %2  /  available actions")
                            .arg(formatSize(inspection.totalBytes), kindNames.join(", ")));
   }
 
@@ -282,7 +282,7 @@ void MainWindow::showBatchInspection(const BatchInspection& inspection) {
   runButton_->show();
   actionList_->clear();
 
-  for (const auto& action : inspection.commonActions) {
+  for (const auto& action : inspection.actions) {
     auto* item = new QListWidgetItem(action.label);
     item->setToolTip(action.description);
     if (!action.available) {
@@ -306,8 +306,8 @@ void MainWindow::showBatchInspection(const BatchInspection& inspection) {
 void MainWindow::filterActions(const QString& query) {
   const auto needle = query.trimmed();
   int first = -1;
-  for (int row = 0; row < currentBatch_.commonActions.size(); ++row) {
-    const auto& action = currentBatch_.commonActions.at(row);
+  for (int row = 0; row < currentBatch_.actions.size(); ++row) {
+    const auto& action = currentBatch_.actions.at(row);
     const bool match = needle.isEmpty() || action.label.contains(needle, Qt::CaseInsensitive) ||
       action.description.contains(needle, Qt::CaseInsensitive) || action.id.contains(needle, Qt::CaseInsensitive);
     actionList_->item(row)->setHidden(!match);
@@ -318,9 +318,9 @@ void MainWindow::filterActions(const QString& query) {
 
 void MainWindow::runSelectedAction() {
   const int row = actionList_->currentRow();
-  if (row < 0 || row >= currentBatch_.commonActions.size()) return;
+  if (row < 0 || row >= currentBatch_.actions.size()) return;
 
-  const auto action = currentBatch_.commonActions.at(row);
+  const auto action = currentBatch_.actions.at(row);
   if (!action.available || currentBatch_.paths.isEmpty()) return;
 
   runButton_->setEnabled(false);
@@ -333,6 +333,39 @@ void MainWindow::runSelectedAction() {
 
   const auto worker = worker_;
   const auto paths = currentBatch_.paths;
+
+  if (action.scope == ActionScope::Batch) {
+    auto* watcher = new QFutureWatcher<WorkerResult>(this);
+    connect(watcher, &QFutureWatcher<WorkerResult>::finished, this,
+            [this, watcher, action, paths] {
+      const auto result = watcher->result();
+      watcher->deleteLater();
+
+      actionList_->setEnabled(true);
+      actionSearch_->setEnabled(true);
+      dropZone_->setEnabled(true);
+
+      const auto detail = workerResultDetail(action, result);
+      for (const auto& path : paths) {
+        history_.record(action.label, path, result.ok, detail);
+      }
+
+      refreshHistory();
+      actionList_->setCurrentRow(-1);
+      filterActions(actionSearch_->text());
+
+      statusLabel_->setText(
+          result.ok
+              ? QString("Batch complete: %1 input files. %2").arg(paths.size()).arg(detail)
+              : "Failed: " + detail);
+    });
+
+    watcher->setFuture(QtConcurrent::run([worker, actionId = action.id, paths] {
+      return worker.runBatchAction(actionId, paths);
+    }));
+    return;
+  }
+
   auto* watcher = new QFutureWatcher<BatchWorkerResults>(this);
   connect(watcher, &QFutureWatcher<BatchWorkerResults>::finished, this,
           [this, watcher, action, paths] {
@@ -361,6 +394,7 @@ void MainWindow::runSelectedAction() {
     }
 
     refreshHistory();
+    actionList_->setCurrentRow(-1);
     filterActions(actionSearch_->text());
 
     if (results.size() == 1) {

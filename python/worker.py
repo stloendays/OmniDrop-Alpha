@@ -215,6 +215,23 @@ def pdf_split(path: Path) -> tuple[Path, int]:
 
 
 
+def pdf_merge(paths: list[Path]) -> tuple[Path, int]:
+    from pypdf import PdfWriter
+
+    if len(paths) < 2:
+        raise ValueError("PDF merge requires at least two input files.")
+
+    writer = PdfWriter()
+    for path in paths:
+        writer.append(str(path))
+
+    output = unique_output_path(paths[0], "merged", ".pdf")
+    page_count = len(writer.pages)
+    with output.open("wb") as handle:
+        writer.write(handle)
+    return output, page_count
+
+
 def zip_inspect(path: Path) -> Path:
     output = unique_output_path(path, "contents", ".txt")
     lines = ["name\tuncompressed_bytes\tcompressed_bytes"]
@@ -274,7 +291,7 @@ def capabilities() -> list[str]:
             ]
         )
     if pypdf_available():
-        actions.extend(["pdf.extract_text", "pdf.split"])
+        actions.extend(["pdf.extract_text", "pdf.split", "pdf.merge"])
     return actions
 
 
@@ -285,6 +302,36 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
 
     if command == "capabilities":
         return ok(actions=capabilities(), pillow=pillow_available(), pypdf=pypdf_available())
+
+    if command == "run_batch":
+        action_id = request.get("action_id")
+        raw_paths = request.get("paths")
+        if not isinstance(raw_paths, list) or not all(isinstance(value, str) for value in raw_paths):
+            return fail("paths must be a list of file paths", "invalid_request")
+        paths = [Path(value) for value in raw_paths]
+        if len(paths) < 2:
+            return fail("Batch action requires at least two files.", "invalid_request")
+        if any(not path.is_file() for path in paths):
+            return fail("One or more input files do not exist.", "not_found")
+
+        if action_id == "pdf.merge":
+            if any(path.suffix.lower() != ".pdf" for path in paths):
+                return fail("PDF merge accepts only PDF files.", "invalid_request")
+            if not pypdf_available():
+                return fail("pypdf is not installed for PDF processing.", "missing_dependency")
+            try:
+                output, page_count = pdf_merge(paths)
+                return ok(
+                    action_id=action_id,
+                    paths=[str(path) for path in paths],
+                    output_path=str(output),
+                    input_count=len(paths),
+                    page_count=page_count,
+                )
+            except Exception as exc:
+                return fail(f"PDF merge failed: {exc}", "pdf_error")
+
+        return fail(f"Unsupported batch action: {action_id}", "unsupported_action")
 
     if command == "run":
         action_id = request.get("action_id")

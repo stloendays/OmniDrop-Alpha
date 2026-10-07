@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
@@ -93,6 +94,15 @@ WorkerResult PythonWorkerClient::capabilities() const {
 
 WorkerResult PythonWorkerClient::runAction(const QString& actionId, const QString& path) const {
   QJsonObject root{{"command", "run"}, {"action_id", actionId}, {"path", path}};
+  return invoke(QJsonDocument(root).toJson(QJsonDocument::Compact));
+}
+
+WorkerResult PythonWorkerClient::runBatchAction(
+    const QString& actionId,
+    const QStringList& paths) const {
+  QJsonArray pathArray;
+  for (const auto& path : paths) pathArray.append(path);
+  QJsonObject root{{"command", "run_batch"}, {"action_id", actionId}, {"paths", pathArray}};
   return invoke(QJsonDocument(root).toJson(QJsonDocument::Compact));
 }
 

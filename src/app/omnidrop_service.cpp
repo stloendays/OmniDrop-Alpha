@@ -3,6 +3,7 @@
 #include <QFileInfo>
 #include <QSet>
 
+#include <algorithm>
 #include <utility>
 
 namespace omnidrop {
@@ -72,9 +73,13 @@ BatchInspection OmniDropService::inspectMany(
   BatchInspection batch;
   batch.paths = paths;
 
+  QList<FileKind> kinds;
+  kinds.reserve(paths.size());
+
   for (const auto& path : paths) {
     auto inspection = inspect(path, availableActionIds);
     batch.totalBytes += inspection.sizeBytes;
+    kinds.push_back(inspection.kind);
     batch.files.push_back(std::move(inspection));
   }
 
@@ -103,6 +108,19 @@ BatchInspection OmniDropService::inspectMany(
 
     if (presentInEveryFile) batch.commonActions.push_back(common);
   }
+
+  batch.actions = batch.commonActions;
+  auto batchOnly = catalog_.recommendedBatchActions(kinds);
+  for (auto& action : batchOnly) {
+    if (action.backend.startsWith("python")) {
+      action.available = action.available && availableActionIds.contains(action.id);
+    }
+    batch.actions.push_back(std::move(action));
+  }
+
+  std::sort(batch.actions.begin(), batch.actions.end(), [](const auto& a, const auto& b) {
+    return a.priority < b.priority;
+  });
 
   return batch;
 }

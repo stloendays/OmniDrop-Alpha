@@ -56,11 +56,12 @@ Implemented:
 
 - text extraction;
 - split into one PDF per page;
-- batch execution for existing single-PDF actions.
+- batch execution for existing single-PDF actions;
+- merge 2+ selected PDFs into one document while preserving selection order.
 
 Next:
 
-- merge/reorder/rotate;
+- reorder/rotate;
 - extract embedded images;
 - OCR scanned documents;
 - image-to-PDF and PDF-to-image;

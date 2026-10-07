@@ -22,6 +22,7 @@ struct BatchInspection {
   QList<FileInspection> files;
   qint64 totalBytes{0};
   QList<ActionDescriptor> commonActions;
+  QList<ActionDescriptor> actions;
 };
 
 class OmniDropService {
