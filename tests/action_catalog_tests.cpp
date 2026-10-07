@@ -52,11 +52,28 @@ int main(int argc, char** argv) {
       "text.format_xml",
       "image.compress",
       "image.convert_webp",
+      "image.rotate_clockwise",
+      "image.rotate_counterclockwise",
       "image.remove_metadata",
       "pdf.extract_text",
       "pdf.split",
       "pdf.merge",
   };
+
+  const auto png = service.inspect("a.png", runtimeActions);
+  bool pngRotateAvailable = false;
+  for (const auto& action : png.actions) {
+    if (action.id == "image.rotate_clockwise") pngRotateAvailable = action.available;
+  }
+  assert(pngRotateAvailable);
+
+  const auto svg = service.inspect("a.svg", runtimeActions);
+  for (const auto& action : svg.actions) {
+    if (action.id == "image.rotate_clockwise" ||
+        action.id == "image.rotate_counterclockwise") {
+      assert(!action.available);
+    }
+  }
 
   const auto twoText = service.inspectMany({"a.txt", "b.md"}, runtimeActions);
   bool batchHasNormalize = false;
