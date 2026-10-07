@@ -6,6 +6,8 @@
 
 namespace omnidrop {
 
+DiagnosticsService::DiagnosticsService() = default;
+
 DiagnosticsService::DiagnosticsService(PythonWorkerClient worker)
     : worker_(std::move(worker)) {}
 
