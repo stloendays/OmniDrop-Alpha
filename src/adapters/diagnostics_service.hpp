@@ -10,7 +10,8 @@ namespace omnidrop {
 
 class DiagnosticsService {
  public:
-  explicit DiagnosticsService(PythonWorkerClient worker = {});
+  DiagnosticsService();
+  explicit DiagnosticsService(PythonWorkerClient worker);
 
   QJsonObject collect() const;
   QByteArray collectJson(
