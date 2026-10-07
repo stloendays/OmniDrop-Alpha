@@ -18,6 +18,17 @@ FileInspection OmniDropService::inspectStatic(const QString& path) const {
     }
   }
 
+  if (kind == FileKind::Text || kind == FileKind::Developer) {
+    const auto suffix = info.suffix().toLower();
+    for (auto& action : actions) {
+      if (action.id == "text.format_json") {
+        action.available = action.available && suffix == "json";
+      } else if (action.id == "text.format_xml") {
+        action.available = action.available && suffix == "xml";
+      }
+    }
+  }
+
   if (kind == FileKind::Image) {
     const auto suffix = info.suffix().toLower();
     const QSet<QString> compressible{"png", "jpg", "jpeg", "webp"};

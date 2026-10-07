@@ -13,6 +13,7 @@ import json
 import stat
 import sys
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -73,6 +74,23 @@ def deduplicate_lines(path: Path) -> Path:
     if text:
         text += "\n"
     output.write_text(text, encoding="utf-8", newline="\n")
+    return output
+
+
+def format_json(path: Path) -> Path:
+    content = path.read_text(encoding="utf-8-sig")
+    parsed = json.loads(content)
+    output = unique_output_path(path, "formatted")
+    rendered = json.dumps(parsed, ensure_ascii=False, indent=2)
+    output.write_text(rendered + "\n", encoding="utf-8", newline="\n")
+    return output
+
+
+def format_xml(path: Path) -> Path:
+    tree = ET.parse(path)
+    ET.indent(tree, space="  ")
+    output = unique_output_path(path, "formatted")
+    tree.write(output, encoding="utf-8", xml_declaration=True, short_empty_elements=True)
     return output
 
 
@@ -238,7 +256,15 @@ def zip_extract(path: Path) -> tuple[Path, int]:
 
 
 def capabilities() -> list[str]:
-    actions = ["file.sha256", "text.normalize", "text.deduplicate", "archive.inspect", "archive.extract"]
+    actions = [
+        "file.sha256",
+        "text.normalize",
+        "text.deduplicate",
+        "text.format_json",
+        "text.format_xml",
+        "archive.inspect",
+        "archive.extract",
+    ]
     if pillow_available():
         actions.extend(
             [
@@ -275,6 +301,15 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
             return ok(action_id=action_id, path=str(path), output_path=str(normalize_text(path)))
         if action_id == "text.deduplicate":
             return ok(action_id=action_id, path=str(path), output_path=str(deduplicate_lines(path)))
+        if action_id in {"text.format_json", "text.format_xml"}:
+            try:
+                operation = {
+                    "text.format_json": format_json,
+                    "text.format_xml": format_xml,
+                }[action_id]
+                return ok(action_id=action_id, path=str(path), output_path=str(operation(path)))
+            except (UnicodeError, json.JSONDecodeError, ET.ParseError) as exc:
+                return fail(f"Formatting failed: {exc}", "format_error")
         if action_id == "archive.inspect":
             try:
                 output = zip_inspect(path)

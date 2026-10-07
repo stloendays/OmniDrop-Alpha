@@ -19,6 +19,8 @@ class WorkerTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertIn("file.sha256", result["actions"])
         self.assertIn("text.normalize", result["actions"])
+        self.assertIn("text.format_json", result["actions"])
+        self.assertIn("text.format_xml", result["actions"])
         self.assertIn("archive.extract", result["actions"])
 
     def test_sha256(self):
@@ -48,6 +50,43 @@ class WorkerTests(unittest.TestCase):
             result = worker.handle({"command": "run", "action_id": "text.deduplicate", "path": str(path)})
             self.assertTrue(result["ok"])
             self.assertEqual(Path(result["output_path"]).read_text(encoding="utf-8"), "a\nb\n")
+
+    def test_json_format_preserves_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "data.json"
+            path.write_text('{"b":2,"a":[1,true]}', encoding="utf-8")
+            before = path.read_text(encoding="utf-8")
+            result = worker.handle({"command": "run", "action_id": "text.format_json", "path": str(path)})
+            self.assertTrue(result["ok"])
+            self.assertEqual(path.read_text(encoding="utf-8"), before)
+            output = Path(result["output_path"])
+            self.assertNotEqual(output, path)
+            self.assertEqual(
+                output.read_text(encoding="utf-8"),
+                '{\n  "b": 2,\n  "a": [\n    1,\n    true\n  ]\n}\n',
+            )
+
+    def test_invalid_json_returns_format_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad.json"
+            path.write_text('{"broken":', encoding="utf-8")
+            result = worker.handle({"command": "run", "action_id": "text.format_json", "path": str(path)})
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["error"]["code"], "format_error")
+
+    def test_xml_format_preserves_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "data.xml"
+            path.write_text("<root><item id=\"1\">x</item></root>", encoding="utf-8")
+            before = path.read_text(encoding="utf-8")
+            result = worker.handle({"command": "run", "action_id": "text.format_xml", "path": str(path)})
+            self.assertTrue(result["ok"])
+            self.assertEqual(path.read_text(encoding="utf-8"), before)
+            output = Path(result["output_path"])
+            self.assertNotEqual(output, path)
+            rendered = output.read_text(encoding="utf-8")
+            self.assertIn("<root>", rendered)
+            self.assertIn('  <item id="1">x</item>', rendered)
 
     def test_zip_inspect_and_extract(self):
         with tempfile.TemporaryDirectory() as directory:
