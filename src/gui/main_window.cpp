@@ -266,7 +266,8 @@ void MainWindow::showBatchInspection(const BatchInspection& inspection) {
   } else {
     QSet<QString> kinds;
     for (const auto& file : inspection.files) kinds.insert(toString(file.kind));
-    QStringList kindNames(kinds.begin(), kinds.end());
+    QStringList kindNames;
+    for (const auto& kind : kinds) kindNames.push_back(kind);
     kindNames.sort();
 
     fileTitle_->setText(QString("%1 files selected").arg(inspection.files.size()));
