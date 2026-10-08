@@ -2,6 +2,7 @@
 #include "adapters/python_worker_client.hpp"
 #include "app/omnidrop_service.hpp"
 #include "app/translation_service.hpp"
+#include "app/workflow_service.hpp"
 #include "app/batch_job.hpp"
 
 #include <QCoreApplication>
@@ -27,6 +28,9 @@ int usage() {
       << "  omnidrop-cli run <action-id> <file>\n"
       << "  omnidrop-cli batch-run <action-id> <file> <file> [...]\n"
       << "  omnidrop-cli translate <file> --from en --to zh --provider argos|mymemory|libretranslate|deepl-free [--allow-upload] [--endpoint https://host/translate]\n"
+      << "  omnidrop-cli workflow validate <workflow.json>\n"
+      << "  omnidrop-cli workflow plan <workflow.json> <file> [...]\n"
+      << "  omnidrop-cli workflow run <workflow.json> <file> [...]\n"
       << "  omnidrop-cli worker-ping\n";
   return 1;
 }
@@ -144,6 +148,38 @@ int main(int argc, char* argv[]) {
     }
     out << translated.output << '\n';
     return 0;
+  }
+
+  if (command == "workflow" && args.size() >= 4) {
+    const auto operation = args.at(2);
+    if (operation != "validate" && operation != "plan" && operation != "run") {
+      return usage();
+    }
+    if ((operation == "validate" && args.size() != 4) ||
+        (operation != "validate" && args.size() < 5)) {
+      return usage();
+    }
+
+    omnidrop::WorkflowService workflows;
+    const auto loaded = workflows.load(args.at(3));
+    if (!loaded.ok) {
+      err << loaded.error << '\n';
+      return 3;
+    }
+
+    const QStringList inputPaths = args.mid(4);
+    const auto response = operation == "validate"
+        ? workflows.validate(loaded.document)
+        : (operation == "plan"
+            ? workflows.plan(loaded.document, inputPaths)
+            : workflows.run(loaded.document, inputPaths));
+
+    if (!response.output.isEmpty()) {
+      out << response.output << '\n';
+    } else if (!response.error.isEmpty()) {
+      err << response.error << '\n';
+    }
+    return response.ok ? 0 : 2;
   }
 
   if (command == "worker-ping" && args.size() == 2) {
