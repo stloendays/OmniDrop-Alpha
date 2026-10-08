@@ -5,8 +5,9 @@ workflow plus its input file selection, run it later, see its latest progress,
 and explicitly retry a failed, stopped or interrupted attempt.
 
 The queue is not a cloud service, scheduled task, or background daemon.
-Jobs do **not** execute automatically after a restart. This is intentional
-until folder-watch triggers and reliability controls have their own tests.
+Jobs do **not** execute automatically after a restart. An optional,
+[explicit session-only folder watcher](WORKFLOW_WATCH.md) can enqueue and
+execute newly arrived files while the GUI or foreground CLI stays open.
 
 ## Desktop
 
