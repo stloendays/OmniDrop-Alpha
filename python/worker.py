@@ -655,9 +655,12 @@ def _run_stream(request: dict[str, Any]) -> int:
     The control reader consumes optional {"command":"workflow.cancel"} frames
     on stdin. A stop is honored *between* actions to protect output integrity.
     """
+    import queue
     import threading
 
     cancel = threading.Event()
+    checkpoint = queue.Queue(maxsize=1)
+    flow_control = request.get("flow_control") is True
 
     def controls() -> None:
         for line in sys.stdin:
@@ -665,15 +668,31 @@ def _run_stream(request: dict[str, Any]) -> int:
                 message = json.loads(line)
             except (ValueError, TypeError):
                 continue
-            if isinstance(message, dict) and message.get("command") == "workflow.cancel":
+            if not isinstance(message, dict):
+                continue
+            if message.get("command") == "workflow.cancel":
                 cancel.set()
                 return
+            if message.get("command") == "workflow.continue" and flow_control:
+                try:
+                    checkpoint.put_nowait(True)
+                except queue.Full:
+                    pass
 
     threading.Thread(target=controls, daemon=True).start()
 
     def emit(payload: dict[str, Any]) -> None:
         sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
         sys.stdout.flush()
+        if flow_control and payload.get("event") == "workflow.action_completed":
+            # Every completed action is a synchronization point. The host
+            # chooses continue/cancel before the next file operation begins.
+            # A lost host cannot leave a model worker blocking indefinitely.
+            if not cancel.is_set():
+                try:
+                    checkpoint.get(timeout=15)
+                except queue.Empty:
+                    cancel.set()
 
     try:
         result = workflow_run(
