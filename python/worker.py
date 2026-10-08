@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from translation import TranslationError, translate_file, ALL_PROVIDERS, SUPPORTED_SUFFIXES
+from audio_voice import SpeechError, speech_available, installed_voices, narrate_file
 
 
 WORKER_DIR = Path(__file__).resolve().parent
@@ -414,6 +415,8 @@ def capabilities() -> list[str]:
                 "image.remove_metadata",
             ]
         )
+    if speech_available():
+        actions.append("text.to_speech")
     if pypdf_available():
         actions.extend([
             "pdf.extract_text",
@@ -438,6 +441,8 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
                 "extensions": sorted(SUPPORTED_SUFFIXES),
                 "requires_explicit_remote_consent": True,
             },
+            local_voice_packs=[{"voice_id": v["voice_id"], "language": v["language"]}
+                               for v in installed_voices()],
         )
 
     if command == "translate_file":
@@ -509,6 +514,15 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
 
         if action_id == "file.sha256":
             return ok(action_id=action_id, path=str(path), sha256=sha256_file(path))
+        if action_id == "text.to_speech":
+            try:
+                result = narrate_file(path)
+                return ok(action_id=action_id, path=str(path), **result)
+            except SpeechError as exc:
+                return fail(str(exc), exc.code)
+            except OSError:
+                return fail("Local speech output could not be written.", "io_error")
+
         if action_id == "text.normalize":
             return ok(action_id=action_id, path=str(path), output_path=str(normalize_text(path)))
         if action_id == "text.deduplicate":
