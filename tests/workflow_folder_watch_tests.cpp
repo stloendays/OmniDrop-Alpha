@@ -3,6 +3,7 @@
 #endif
 
 #include "app/workflow_folder_watch_service.hpp"
+#include "app/workflow_job_service.hpp"
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -10,6 +11,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
 
@@ -75,6 +77,30 @@ int main(int argc, char** argv) {
   assert(ready.ok());
   assert(ready.readyPaths.size() == 1);
   assert(QFileInfo(ready.readyPaths.first()).fileName() == "new.txt");
+
+  // Full integration: stable arrival -> durable Jobs queue -> local action ->
+  // output suppression. A retry/restart never overwrites the source.
+  omnidrop::WorkflowJobService jobs(temp.filePath("jobs-state/jobs.json"));
+  const auto enqueued = jobs.enqueue(watcher.workflow(), ready.readyPaths);
+  assert(enqueued.ok);
+  const auto queuedJson = QJsonDocument::fromJson(enqueued.output.toUtf8()).object();
+  const auto jobId = queuedJson.value("job").toObject().value("id").toString();
+  assert(!jobId.isEmpty());
+  const auto executed = jobs.execute(jobId);
+  assert(executed.ok);
+  const auto report = QJsonDocument::fromJson(executed.output.toUtf8()).object();
+  QStringList generated;
+  for (const auto& output : report.value("created_output_paths").toArray()) {
+    generated.append(output.toString());
+  }
+  assert(generated.size() == 1);
+  assert(QFileInfo(generated.first()).isFile());
+  watcher.ignoreCreatedOutputs(generated);
+  assert(watcher.scan(now + 7700).readyPaths.isEmpty());
+  QFile original(fresh);
+  assert(original.open(QIODevice::ReadOnly));
+  assert(original.readAll() == "finished input");
+  original.close();
 
   // A given source path is emitted exactly once, even if modified later.
   assert(watcher.scan(now + 8500).readyPaths.isEmpty());
