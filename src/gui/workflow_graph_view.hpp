@@ -3,6 +3,8 @@
 #include <QGraphicsView>
 #include <QHash>
 #include <QJsonObject>
+#include <QList>
+#include <QPainterPath>
 #include <QPointF>
 #include <QString>
 #include <QStringList>
@@ -25,6 +27,9 @@ class WorkflowGraphView final : public QGraphicsView {
   QJsonObject document() const { return document_; }
   void setNodeStatus(const QString& id, const QString& status);
   void refreshEdges();
+  // Public editing commands also support headless semantic GUI tests.
+  void requestConnection(const QString& source, const QString& target);
+  void requestDisconnection(const QString& source, const QString& target);
 
  signals:
   void workflowChanged(const QJsonObject& document);
