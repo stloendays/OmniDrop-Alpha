@@ -3,6 +3,26 @@ description: Report reproducible OmniDrop behavior that is incorrect.
 title: "[Bug] "
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug. Before posting, remove personal paths,
+        document text, private tokens and other sensitive data. For suspected
+        security issues, follow SECURITY.md instead of submitting a public issue.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected area
+      options:
+        - Desktop interface
+        - CLI and scripting
+        - Workflow Builder or Jobs
+        - Folder Watch
+        - Translation or voice (optional)
+        - Installation or packaging
+        - Other
+    validations:
+      required: true
   - type: textarea
     id: summary
     attributes:
@@ -21,6 +41,9 @@ body:
     id: version
     attributes:
       label: OmniDrop version or commit
+      description: Run omnidrop-cli --version for packaged builds.
+    validations:
+      required: true
   - type: input
     id: os
     attributes:

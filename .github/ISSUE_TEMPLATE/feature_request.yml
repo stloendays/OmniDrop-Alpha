@@ -3,6 +3,11 @@ description: Propose a file workflow or product capability.
 title: "[Feature] "
 labels: [enhancement]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Start with the user problem. OmniDrop is local-first; remote uploads
+        or large model dependencies must be explicitly justified and opt-in.
   - type: textarea
     id: problem
     attributes:
@@ -27,3 +32,10 @@ body:
         - CLI
         - Explorer integration
         - Automation / agent API
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Privacy, runtime requirements, and alternatives
+      description: Explain sample file types, offline expectations or tools already tried.
+    validations:
+      required: false
