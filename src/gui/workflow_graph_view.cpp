@@ -1,6 +1,8 @@
 #include "gui/workflow_graph_view.hpp"
 
 #include <QGraphicsEllipseItem>
+#include <QJsonArray>
+#include <QFont>
 #include <QGraphicsPathItem>
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
@@ -16,6 +18,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <cmath>
 
 namespace omnidrop {
 namespace {
@@ -253,6 +256,14 @@ void WorkflowGraphView::applyChange(const QJsonObject& document) {
   }
   setDocument(document);
   emit workflowChanged(document_);
+}
+
+void WorkflowGraphView::requestConnection(const QString& source, const QString& target) {
+  connectPorts(source, target);
+}
+
+void WorkflowGraphView::requestDisconnection(const QString& source, const QString& target) {
+  removeLink(source, target);
 }
 
 void WorkflowGraphView::connectPorts(const QString& source, const QString& target) {
