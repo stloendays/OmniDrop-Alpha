@@ -123,6 +123,9 @@ omnidrop-cli capabilities
 omnidrop-cli run <action-id> <file>
 omnidrop-cli batch-run <action-id> <file> <file> [...]
 omnidrop-cli translate <file> --from en --to zh --provider argos|mymemory|libretranslate|deepl-free [--allow-upload]
+omnidrop-cli workflow validate <workflow.json>
+omnidrop-cli workflow plan <workflow.json> <file> [...]
+omnidrop-cli workflow run <workflow.json> <file> [...]
 omnidrop-cli worker-ping
 ```
 
@@ -137,7 +140,8 @@ src/app/           action catalog and application services
 src/adapters/      worker, persistence, and future platform adapters
 src/gui/           Qt desktop presentation
 src/cli/           automation-friendly CLI
-python/            stateless local worker and dependencies
+python/            stateless local worker, DAG engine and dependencies
+workflows/examples/ portable workflow templates for common operations
 tests/             C++ catalog tests and Python worker contract tests
 docs/              architecture, action contracts, and roadmap
 ```
