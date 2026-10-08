@@ -26,7 +26,7 @@ int usage() {
       << "  omnidrop-cli diagnostics\n"
       << "  omnidrop-cli run <action-id> <file>\n"
       << "  omnidrop-cli batch-run <action-id> <file> <file> [...]\n"
-      << "  omnidrop-cli translate <file> --from en --to zh --provider argos|mymemory|libretranslate|deepl-free [--allow-upload] [--endpoint https://host/translate]\\n"
+      << "  omnidrop-cli translate <file> --from en --to zh --provider argos|mymemory|libretranslate|deepl-free [--allow-upload] [--endpoint https://host/translate]\n"
       << "  omnidrop-cli worker-ping\n";
   return 1;
 }
