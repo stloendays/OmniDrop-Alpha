@@ -12,6 +12,21 @@ The product principle is simple:
 No account is required. Core file operations are designed to run locally. Network or AI
 features, when added, must be explicit opt-in actions rather than hidden behavior.
 
+## Why OmniDrop is different
+
+OmniDrop is not trying to duplicate a complete office suite. Its focus is
+**drop -> context-aware actions -> optional private/local processors -> reproducible output**.
+C++/Qt, CLI and automation share the same action IDs; users can keep their original files
+and choose when to use third-party providers.
+
+New optional workspaces:
+
+- [Translation](docs/TRANSLATION.md) - local Argos or explicitly approved MyMemory,
+  LibreTranslate and DeepL API Free providers for text/Markdown/subtitles.
+- [Offline voice packs](docs/VOICE_PACKS.md) - attach a verified small ONNX speech model and
+  convert text/subtitles to WAV without uploading the source. The model pack is a separate
+  artifact; an optional Piper runtime is required.
+
 ## Status
 
 OmniDrop is in early alpha (`0.1.0`). The current vertical slice includes:
@@ -34,6 +49,7 @@ OmniDrop is in early alpha (`0.1.0`). The current vertical slice includes:
 | Any file | SHA-256 | `file.sha256` | Python stdlib |
 | Text / code | Normalize text | `text.normalize` | Python stdlib |
 | Text / code | Remove duplicate lines | `text.deduplicate` | Python stdlib |
+| Text / subtitles | Generate speech WAV (optional) | `text.to_speech` | Verified Piper voice pack |
 | Image | Compress image | `image.compress` | Pillow |
 | Image | Convert to WebP | `image.convert_webp` | Pillow |
 | Image | Remove metadata | `image.remove_metadata` | Pillow |
@@ -87,7 +103,7 @@ Configure, build, and test:
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
-python -m unittest discover -s tests -p "test_worker.py"
+python -m unittest discover -s tests -p "test_*.py"
 ```
 
 Run the GUI from the build output and drop a local file into the window.
@@ -102,6 +118,8 @@ omnidrop-cli inspect <file>
 omnidrop-cli actions <file>
 omnidrop-cli capabilities
 omnidrop-cli run <action-id> <file>
+omnidrop-cli batch-run <action-id> <file> <file> [...]
+omnidrop-cli translate <file> --from en --to zh --provider argos|mymemory|libretranslate|deepl-free [--allow-upload]
 omnidrop-cli worker-ping
 ```
 
