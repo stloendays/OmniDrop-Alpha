@@ -85,6 +85,34 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(Path(result["output_paths"][0]).suffix, ".txt")
             self.assertEqual(len(result["created_output_paths"]), 2)
 
+    def test_branches_can_join_outputs_into_one_pdf(self):
+        if not worker.pypdf_available():
+            self.skipTest("pypdf not installed")
+        from pypdf import PdfReader, PdfWriter
+
+        document = definition([
+            node("join", "pdf.merge", ["cw", "ccw"]),
+            node("ccw", "pdf.rotate_counterclockwise"),
+            node("cw", "pdf.rotate_clockwise"),
+        ])
+        with tempfile.TemporaryDirectory() as temp:
+            inputs = []
+            for index in range(2):
+                path = Path(temp) / f"source-{index}.pdf"
+                writer = PdfWriter()
+                writer.add_blank_page(width=210, height=180)
+                with path.open("wb") as stream:
+                    writer.write(stream)
+                inputs.append(str(path))
+
+            plan = wf.plan(document, inputs, worker.capabilities())
+            self.assertEqual(plan["execution_order"], ["ccw", "cw", "join"])
+            self.assertEqual(plan["steps"][-1]["input_count"], 4)
+            output = wf.run(document, inputs, worker.capabilities(), worker.handle)
+            self.assertTrue(output["ok"], output)
+            self.assertEqual(len(output["output_paths"]), 1)
+            self.assertEqual(len(PdfReader(output["output_paths"][0]).pages), 4)
+
     def test_validate_rejects_cycles_duplicates_and_unknown_references(self):
         self.assertCode(lambda: wf.validate(definition([
             node("a", "text.normalize", ["b"]), node("b", "text.normalize", ["a"])
