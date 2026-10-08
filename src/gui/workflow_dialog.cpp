@@ -256,13 +256,100 @@ void WorkflowDialog::refreshInputs() {
 }
 
 void WorkflowDialog::addStep(const QString& actionId) {
-  if (graphMode_ || busy_ || actionId.isEmpty()) return;
+  if (busy_ || actionId.isEmpty()) return;
+  if (stepsList_->count() >= 24) {
+    showStatus("A workflow cannot exceed 24 nodes.", true);
+    return;
+  }
+  if (graphMode_) {
+    auto nodes = loadedDefinition_.value("nodes").toArray();
+    QSet<QString> usedIds;
+    for (const auto& raw : nodes) usedIds.insert(raw.toObject().value("id").toString());
+    int index = 1;
+    QString id;
+    do { id = QString("node_%1").arg(index++); } while (usedIds.contains(id));
+    nodes.append(QJsonObject{
+        {"id", id},
+        {"action_id", actionId},
+        {"sources", QJsonArray{QStringLiteral("$input")}},
+    });
+    loadedDefinition_.insert("nodes", nodes);
+    refreshGraphSteps();
+    refreshGraph();
+    showStatus("Node added. Connect its input to another output, or leave it connected to Files.");
+    return;
+  }
   auto* item = new QListWidgetItem(
       QString("%1. %2").arg(stepsList_->count() + 1).arg(actionId));
   item->setData(Qt::UserRole, actionId);
   stepsList_->addItem(item);
   stepsList_->setCurrentRow(stepsList_->count() - 1);
   refreshButtons();
+  refreshGraph();
+}
+
+void WorkflowDialog::removeStep() {
+  if (busy_ || stepsList_->currentRow() < 0) return;
+  if (graphMode_) {
+    const QString id = stepsList_->currentItem()->data(Qt::UserRole + 1).toString();
+    const auto previous = loadedDefinition_.value("nodes").toArray();
+    QJsonArray updated;
+    for (const auto& raw : previous) {
+      auto node = raw.toObject();
+      if (node.value("id").toString() == id) continue;
+      QJsonArray refs;
+      for (const auto& ref : node.value("sources").toArray()) {
+        if (ref.toString() != id) refs.append(ref);
+      }
+      if (refs.isEmpty()) refs.append("$input");
+      node.insert("sources", refs);
+      updated.append(node);
+    }
+    loadedDefinition_.insert("nodes", updated);
+    refreshGraphSteps();
+  } else {
+    delete stepsList_->takeItem(stepsList_->currentRow());
+    for (int index = 0; index < stepsList_->count(); ++index) {
+      auto* item = stepsList_->item(index);
+      item->setText(QString("%1. %2").arg(index + 1)
+                        .arg(item->data(Qt::UserRole).toString()));
+    }
+  }
+  refreshGraph();
+  refreshButtons();
+}
+
+void WorkflowDialog::convertToGraph() {
+  if (busy_ || graphMode_ || stepsList_->count() == 0) return;
+  loadedDefinition_ = definition();
+  graphMode_ = true;
+  refreshGraphSteps();
+  refreshGraph();
+  rightTabs_->setCurrentWidget(graphView_);
+  showStatus("Graph mode: drag from a right port to a left port; right-click links to disconnect.");
+  refreshButtons();
+}
+
+void WorkflowDialog::refreshGraphSteps() {
+  if (!graphMode_) return;
+  const auto nodes = loadedDefinition_.value("nodes").toArray();
+  stepsList_->clear();
+  for (const auto& raw : nodes) {
+    const auto node = raw.toObject();
+    const auto id = node.value("id").toString();
+    const auto action = node.value("action_id").toString();
+    auto* item = new QListWidgetItem(id + "  ·  " + action);
+    item->setData(Qt::UserRole, action);
+    item->setData(Qt::UserRole + 1, id);
+    item->setToolTip("Inputs: " + QString::fromUtf8(
+        QJsonDocument(node.value("sources").toArray()).toJson(QJsonDocument::Compact)));
+    stepsList_->addItem(item);
+  }
+  refreshButtons();
+}
+
+void WorkflowDialog::refreshGraph() {
+  if (graphView_) graphView_->setDocument(definition());
 }
 
 void WorkflowDialog::moveStep(int offset) {
@@ -278,6 +365,7 @@ void WorkflowDialog::moveStep(int offset) {
     step->setText(QString("%1. %2").arg(i + 1).arg(step->data(Qt::UserRole).toString()));
   }
   refreshButtons();
+  refreshGraph();
 }
 
 void WorkflowDialog::applyTemplate(int preset) {
