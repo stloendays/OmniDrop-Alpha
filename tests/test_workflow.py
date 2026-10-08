@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import tempfile
+import subprocess
+import json
 import unittest
 from pathlib import Path
 import sys
@@ -208,6 +210,63 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(result["steps"][0]["status"], "completed")
             self.assertEqual(result["steps"][1]["status"], "failed")
             self.assertEqual(len(result["run_id"]), 32)
+
+    def test_progress_and_cooperative_stop_after_completed_action(self):
+        graph = definition([
+            node("normalize", "text.normalize"),
+            node("unique", "text.deduplicate", ["normalize"]),
+        ])
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "input.txt"
+            source.write_text("one  \none \n", encoding="utf-8")
+            events = []
+            stop = {"requested": False}
+
+            def report(event):
+                events.append(event)
+                if event["event"] == "workflow.action_completed":
+                    stop["requested"] = True
+
+            result = wf.run(
+                graph, [str(source)], worker.capabilities(), worker.handle,
+                on_event=report, should_stop=lambda: stop["requested"],
+            )
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["status"], "stopped")
+            self.assertEqual(result["error"]["code"], "stopped")
+            self.assertEqual(result["completed_operations"], 1)
+            self.assertEqual(result["total_operations"], 2)
+            self.assertEqual(len(result["created_output_paths"]), 1)
+            self.assertTrue(Path(result["created_output_paths"][0]).exists())
+            self.assertEqual(source.read_text(encoding="utf-8"), "one  \none \n")
+            self.assertEqual(events[0]["event"], "workflow.started")
+            self.assertEqual(events[-1]["event"], "workflow.stopped")
+            self.assertTrue(all("path" not in event for event in events))
+
+    def test_streaming_worker_outputs_parseable_progress_and_final_frame(self):
+        graph = definition([
+            node("normalize", "text.normalize"),
+            node("unique", "text.deduplicate", ["normalize"]),
+        ])
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "input.txt"
+            source.write_text("One  \nOne  \n", encoding="utf-8")
+            payload = {"command": "workflow.run_stream", "workflow": graph,
+                       "paths": [str(source)]}
+            outcome = subprocess.run(
+                [sys.executable, "-u", str(ROOT / "python" / "worker.py")],
+                input=json.dumps(payload) + "\n",
+                capture_output=True, text=True, timeout=30, check=False,
+            )
+            self.assertEqual(outcome.returncode, 0, outcome.stderr)
+            events = [json.loads(line) for line in outcome.stdout.splitlines()]
+            self.assertGreaterEqual(len(events), 7)
+            self.assertEqual(events[0]["event"], "workflow.started")
+            self.assertEqual(events[-1]["event"], "workflow.finished")
+            self.assertEqual(events[-1]["result"]["status"], "completed")
+            self.assertEqual(events[-1]["result"]["completed_operations"], 2)
+            self.assertEqual(Path(events[-1]["result"]["output_paths"][0]).read_text(), "One\n")
+            self.assertEqual(source.read_text(), "One  \nOne  \n")
 
     def test_input_bounds_and_no_embedded_file_paths(self):
         document = definition([node("step", "text.normalize")])
