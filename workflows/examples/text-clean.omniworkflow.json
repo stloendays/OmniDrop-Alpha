@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "name": "Clean and deduplicate text",
+  "description": "Normalize line endings and whitespace, then remove duplicate lines.",
+  "nodes": [
+    {"id": "normalize", "action_id": "text.normalize", "sources": ["$input"]},
+    {"id": "unique", "action_id": "text.deduplicate", "sources": ["normalize"]}
+  ]
+}

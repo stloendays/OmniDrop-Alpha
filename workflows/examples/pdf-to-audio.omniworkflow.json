@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "name": "PDF to offline narration",
+  "description": "Extract text and synthesize WAV using an installed and verified Piper voice pack.",
+  "nodes": [
+    {"id": "extract", "action_id": "pdf.extract_text", "sources": ["$input"]},
+    {"id": "narrate", "action_id": "text.to_speech", "sources": ["extract"]}
+  ]
+}

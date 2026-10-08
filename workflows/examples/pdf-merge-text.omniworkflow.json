@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "name": "Merge PDFs and extract text",
+  "description": "Join two or more PDFs in order; extract text from the merged document.",
+  "nodes": [
+    {"id": "merge", "action_id": "pdf.merge", "sources": ["$input"]},
+    {"id": "extract", "action_id": "pdf.extract_text", "sources": ["merge"]}
+  ]
+}

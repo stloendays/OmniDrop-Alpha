@@ -3,6 +3,7 @@
 #include "app/translation_request.hpp"
 
 #include <QByteArray>
+#include <QJsonObject>
 #include <QString>
 #include <QStringList>
 
@@ -23,9 +24,12 @@ class PythonWorkerClient {
   WorkerResult runAction(const QString& actionId, const QString& path) const;
   WorkerResult runBatchAction(const QString& actionId, const QStringList& paths) const;
   WorkerResult translateFile(const TranslationRequest& request) const;
+  WorkerResult workflowCommand(const QString& command,
+                               const QJsonObject& document,
+                               const QStringList& paths) const;
 
  private:
-  WorkerResult invoke(const QByteArray& request) const;
+  WorkerResult invoke(const QByteArray& request, int timeoutMs = 120000) const;
   QString resolvePython() const;
   QString resolveWorkerScript() const;
 

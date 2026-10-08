@@ -47,7 +47,7 @@ QString PythonWorkerClient::resolveWorkerScript() const {
   return candidates.constLast();
 }
 
-WorkerResult PythonWorkerClient::invoke(const QByteArray& request) const {
+WorkerResult PythonWorkerClient::invoke(const QByteArray& request, int timeoutMs) const {
   QProcess process;
   process.setProgram(resolvePython());
   process.setArguments({resolveWorkerScript()});
@@ -58,7 +58,7 @@ WorkerResult PythonWorkerClient::invoke(const QByteArray& request) const {
 
   process.write(request);
   process.closeWriteChannel();
-  if (!process.waitForFinished(120000)) {
+  if (!process.waitForFinished(timeoutMs)) {
     process.kill();
     process.waitForFinished();
     return {false, {}, "Python worker timed out."};
@@ -120,6 +120,23 @@ WorkerResult PythonWorkerClient::translateFile(const TranslationRequest& request
       {"api_key", request.apiKey},
   };
   return invoke(QJsonDocument(root).toJson(QJsonDocument::Compact));
+}
+
+WorkerResult PythonWorkerClient::workflowCommand(
+    const QString& command,
+    const QJsonObject& document,
+    const QStringList& paths) const {
+  QJsonArray inputs;
+  for (const auto& path : paths) inputs.append(path);
+  const QJsonObject request{
+      {"command", command},
+      {"workflow", document},
+      {"paths", inputs},
+  };
+  // Running several sequential actions can take longer than a single action;
+  // Qt callers invoke this service on a worker thread, not the GUI thread.
+  return invoke(QJsonDocument(request).toJson(QJsonDocument::Compact),
+                command == "workflow.run" ? 600000 : 120000);
 }
 
 }  // namespace omnidrop

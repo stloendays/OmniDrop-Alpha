@@ -19,6 +19,7 @@ from typing import Any
 
 from translation import TranslationError, translate_file, ALL_PROVIDERS, SUPPORTED_SUFFIXES
 from audio_voice import SpeechError, speech_available, installed_voices, narrate_file
+from workflow_engine import WorkflowError, plan as workflow_plan, run as workflow_run, validate as workflow_validate
 
 
 WORKER_DIR = Path(__file__).resolve().parent
@@ -444,6 +445,25 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
             local_voice_packs=[{"voice_id": v["voice_id"], "language": v["language"]}
                                for v in installed_voices()],
         )
+
+    if command in {"workflow.validate", "workflow.plan", "workflow.run"}:
+        # Manifests contain only local allowlisted Action IDs. They cannot
+        # trigger remote translation or arbitrary programs.
+        definition = request.get("workflow")
+        if command == "workflow.validate":
+            try:
+                return ok(command=command, **workflow_validate(definition))
+            except WorkflowError as exc:
+                return fail(str(exc), exc.code)
+
+        inputs = request.get("paths")
+        try:
+            available = capabilities()
+            if command == "workflow.plan":
+                return ok(command=command, **workflow_plan(definition, inputs, available))
+            return workflow_run(definition, inputs, available, handle)
+        except WorkflowError as exc:
+            return fail(str(exc), exc.code)
 
     if command == "translate_file":
         # An explicit command keeps remote transmission out of ordinary file actions.
