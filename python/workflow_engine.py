@@ -264,7 +264,16 @@ def run(
     paths: Any,
     capabilities: list[str],
     dispatch: Callable[[dict[str, Any]], dict[str, Any]],
+    *,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
+    should_stop: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
+    """Run a validated local workflow, optionally reporting fine-grained progress.
+
+    The cancellation callback is only polled *between* local action invocations.
+    Never interrupt a PDF write or voice synthesis in the middle of its output.
+    Existing 4-positional-argument callers keep the original contract.
+    """
     preflight = plan(document, paths, capabilities)
     for step in preflight["steps"]:
         if not step["available"]:
@@ -276,7 +285,41 @@ def run(
     records: list[dict[str, Any]] = []
     created: list[str] = []
     run_id = uuid.uuid4().hex
+    completed = 0
+    total = preflight["operation_count"]
 
+    def emit(event_type: str, **fields: Any) -> None:
+        if on_event is not None:
+            on_event({
+                "schema_version": SCHEMA_VERSION,
+                "event": event_type,
+                "run_id": run_id,
+                "completed_operations": completed,
+                "total_operations": total,
+                **fields,
+            })
+
+    def terminal(
+        code: str, message: str, node_id: str, status: str,
+    ) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "ok": False,
+            "schema_version": SCHEMA_VERSION,
+            "run_id": run_id,
+            "status": status,
+            "failed_node": node_id if status == "failed" else "",
+            "error": {"code": code, "message": message},
+            "steps": records,
+            "created_output_paths": created,
+            "completed_operations": completed,
+            "total_operations": total,
+            "remote_requests": False,
+        }
+        emit("workflow.stopped" if status == "stopped" else "workflow.failed",
+             node_id=node_id, status=status, error_code=code)
+        return result
+
+    emit("workflow.started", name=preflight["name"], status="running")
     for node in nodes:
         spec = ACTIONS[node.action_id]
         incoming = _sourced(node.sources, resources)
@@ -287,71 +330,91 @@ def run(
         ]
         outputs: list[str] = []
         record: dict[str, Any] = {
-            "id": node.id, "action_id": node.action_id, "status": "running",
-            "input_count": len(incoming), "completed_count": 0, "outputs": outputs,
+            "id": node.id,
+            "action_id": node.action_id,
+            "status": "running",
+            "input_count": len(incoming),
+            "completed_count": 0,
+            "outputs": outputs,
         }
         records.append(record)
+        emit("workflow.node_started", node_id=node.id, action_id=node.action_id,
+             status="running", node_total=len(invocations))
 
         for request in invocations:
+            if should_stop is not None and should_stop():
+                record["status"] = "stopped"
+                return terminal(
+                    "stopped", "Stopped safely before the next file action.",
+                    node.id, "stopped",
+                )
+
+            emit("workflow.action_started", node_id=node.id, action_id=node.action_id,
+                 status="running", node_completed=record["completed_count"],
+                 node_total=len(invocations))
             try:
                 result = dispatch(request)
             except Exception:
-                result = {"ok": False, "error": {"code": "worker_failure", "message": "Local worker raised an exception."}}
+                result = {
+                    "ok": False,
+                    "error": {
+                        "code": "worker_failure",
+                        "message": "Local worker raised an exception.",
+                    },
+                }
 
             if not isinstance(result, dict) or result.get("ok") is not True:
                 issue = result.get("error", {}) if isinstance(result, dict) else {}
                 code = issue.get("code", "worker_failure") if isinstance(issue, dict) else "worker_failure"
                 message = issue.get("message", "Local action failed.") if isinstance(issue, dict) else "Local action failed."
                 record["status"] = "failed"
-                return {
-                    "ok": False,
-                    "schema_version": SCHEMA_VERSION,
-                    "run_id": run_id,
-                    "failed_node": node.id,
-                    "error": {"code": str(code), "message": str(message)},
-                    "steps": records,
-                    "created_output_paths": created,
-                    "remote_requests": False,
-                }
+                return terminal(str(code), str(message), node.id, "failed")
 
-            record["completed_count"] += 1
             if spec.output != "none":
                 value = result.get("output_path")
                 if not isinstance(value, str) or not value:
                     record["status"] = "failed"
-                    return {
-                        "ok": False, "schema_version": SCHEMA_VERSION, "run_id": run_id,
-                        "failed_node": node.id,
-                        "error": {"code": "missing_output", "message": "Action reported success without an output path."},
-                        "steps": records, "created_output_paths": created, "remote_requests": False,
-                    }
+                    return terminal(
+                        "missing_output", "Action reported success without an output path.",
+                        node.id, "failed",
+                    )
                 target = Path(value).resolve()
                 correct_kind = target.is_file() if spec.output != "directory" else target.is_dir()
                 if not correct_kind or target in (Path(path).resolve() for path in incoming):
                     record["status"] = "failed"
-                    return {
-                        "ok": False, "schema_version": SCHEMA_VERSION, "run_id": run_id,
-                        "failed_node": node.id,
-                        "error": {"code": "invalid_output", "message": "Action output is missing or overwrites an input."},
-                        "steps": records, "created_output_paths": created, "remote_requests": False,
-                    }
+                    return terminal(
+                        "invalid_output", "Action output is missing or overwrites an input.",
+                        node.id, "failed",
+                    )
                 outputs.append(str(target))
                 created.append(str(target))
 
+            record["completed_count"] += 1
+            completed += 1
+            emit("workflow.action_completed", node_id=node.id, action_id=node.action_id,
+                 status="running", node_completed=record["completed_count"],
+                 node_total=len(invocations))
+
         record["status"] = "completed"
         resources[node.id] = outputs
+        emit("workflow.node_completed", node_id=node.id, action_id=node.action_id,
+             status="completed", node_total=len(invocations),
+             node_completed=len(invocations))
 
-    # Leaf node outputs are the public results. Every created intermediate file
-    # is also reported so the user can inspect/recover partial work.
     used = {source for node in nodes for source in node.sources if source != "$input"}
     leaf_paths = [path for node in nodes if node.id not in used for path in resources[node.id]]
-    return {
+    result = {
         "ok": True,
         "schema_version": SCHEMA_VERSION,
         "run_id": run_id,
         "name": preflight["name"],
+        "status": "completed",
         "steps": records,
         "output_paths": leaf_paths,
         "created_output_paths": created,
+        "completed_operations": completed,
+        "total_operations": total,
         "remote_requests": False,
     }
+    emit("workflow.completed", status="completed", output_count=len(leaf_paths))
+    return result
