@@ -41,7 +41,8 @@ FileInspection OmniDropService::inspectStatic(const QString& path) const {
       } else if (action.id == "image.convert_webp") {
         action.available = action.available && convertible.contains(suffix);
       } else if (action.id == "image.rotate_clockwise" ||
-                 action.id == "image.rotate_counterclockwise") {
+                 action.id == "image.rotate_counterclockwise" ||
+                 action.id == "image.resize_half") {
         action.available = action.available && rotatable.contains(suffix);
       }
     }
