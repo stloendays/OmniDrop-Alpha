@@ -12,6 +12,7 @@
 #include <QTemporaryDir>
 
 #include <cassert>
+#include <atomic>
 
 int main(int argc, char** argv) {
   QCoreApplication app(argc, argv);
@@ -74,6 +75,39 @@ int main(int argc, char** argv) {
   QFile original(source);
   assert(original.open(QIODevice::ReadOnly));
   assert(original.readAll() == "alpha  \nalpha  \nbeta \n");
+
+  // Streaming reports per-file events without modifying the original input.
+  std::atomic_bool stop{false};
+  int progressFrames = 0;
+  const auto stopped = service.runStreaming(
+      loaded.document, {source},
+      [&stop, &progressFrames](const QJsonObject& event) {
+        if (event.value("event").toString() == "workflow.action_completed") {
+          ++progressFrames;
+          stop.store(true, std::memory_order_release);
+        }
+      },
+      &stop);
+  assert(!stopped.ok);
+  assert(progressFrames == 1);
+  const auto stoppedJson = QJsonDocument::fromJson(stopped.output.toUtf8()).object();
+  assert(stoppedJson.value("status").toString() == "stopped");
+  assert(stoppedJson.value("completed_operations").toInt() == 1);
+  assert(stoppedJson.value("created_output_paths").toArray().size() == 1);
+
+  int progressSeen = 0;
+  const auto streamed = service.runStreaming(
+      loaded.document, {source},
+      [&progressSeen](const QJsonObject& event) {
+        if (event.value("event").toString() == "workflow.action_completed") {
+          ++progressSeen;
+        }
+      });
+  assert(streamed.ok);
+  assert(progressSeen == 2);
+  const auto streamedJson = QJsonDocument::fromJson(streamed.output.toUtf8()).object();
+  assert(streamedJson.value("status").toString() == "completed");
+  assert(streamedJson.value("output_paths").toArray().size() == 1);
 
   const QJsonObject invalid{
       {"schema_version", 1},
