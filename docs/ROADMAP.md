@@ -56,6 +56,7 @@ Next:
 - persistent local workflow job queue and explicit full-run retry: implemented in v2.3;
 - explicit non-recursive folder watching with stable-file detection, output suppression,
   and exclusive cross-process watch locks: implemented in v2.4;
+- bounded persistent Jobs event timeline (GUI/CLI, path-free events): implemented in v2.5;
 - per-node checkpoint replay and failed-action-only retry;
 - finer-grained checkpoint persistence, replay and restart reconciliation;
 - typed action parameters and variable propagation;
