@@ -15,6 +15,8 @@
 #include <QStandardPaths>
 #include <QUuid>
 
+#include <utility>
+
 namespace omnidrop {
 namespace {
 
