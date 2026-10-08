@@ -51,16 +51,38 @@ $second = $null
 
 try {
   $first = Start-Process -FilePath $gui -WorkingDirectory $root -PassThru
-  Start-Sleep -Milliseconds 1800
 
-  if ($first.HasExited) {
-    throw "Packaged OmniDrop GUI exited during startup with code $($first.ExitCode)."
+  # A fixed 1.8-second sleep raced with overloaded Windows CI runners.
+  # Wait for the GUI message loop to become responsive before probing the
+  # single-instance IPC contract. A timeout is still a real test failure.
+  $ready = $false
+  $readyDeadline = (Get-Date).AddSeconds(15)
+  do {
+    $first.Refresh()
+    if ($first.HasExited) {
+      throw "Packaged OmniDrop GUI exited during startup with code $($first.ExitCode)."
+    }
+    try {
+      if ($first.WaitForInputIdle(750)) {
+        $ready = $true
+        break
+      }
+    }
+    catch [System.InvalidOperationException] {
+      # The GUI process can briefly have no message loop during Qt startup.
+    }
+    Start-Sleep -Milliseconds 150
+  } while ((Get-Date) -lt $readyDeadline)
+
+  if (-not $ready) {
+    throw "Packaged OmniDrop GUI did not become responsive within 15 seconds (pid $($first.Id))."
   }
 
   $second = Start-Process -FilePath $gui -WorkingDirectory $root -PassThru
-  if (-not $second.WaitForExit(5000)) {
+  if (-not $second.WaitForExit(12000)) {
+    $first.Refresh()
     Stop-Process -Id $second.Id -Force -ErrorAction SilentlyContinue
-    throw "A second packaged OmniDrop launch did not forward to the primary instance and exit."
+    throw "Secondary OmniDrop did not forward in 12 seconds. Primary pid=$($first.Id), primaryExited=$($first.HasExited), secondaryPid=$($second.Id)."
   }
   if ($second.ExitCode -ne 0) {
     throw "Second packaged OmniDrop launch exited with code $($second.ExitCode)."
