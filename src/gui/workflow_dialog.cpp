@@ -659,6 +659,145 @@ void WorkflowDialog::removeSelectedJob() {
   refreshJobs();
 }
 
+void WorkflowDialog::toggleFolderWatch() {
+  if (watchEnabled_) {
+    watchEnabled_ = false;
+    watchTimer_->stop();
+    pendingWatchInputs_.clear();
+    // Keep the exclusive folder lock until an active file action exits.
+    if (!busy_) folderWatch_.stop();
+    watchStatusLabel_->hide();
+    showStatus(busy_ ? "Folder watching stopped; the active local job will finish."
+                     : "Folder watching stopped.");
+    refreshButtons();
+    return;
+  }
+  if (busy_ || stepsList_->count() == 0) return;
+  const auto folder = QFileDialog::getExistingDirectory(
+      this, "Choose one folder to monitor for new files");
+  if (folder.isEmpty()) return;
+
+  QString error;
+  if (!folderWatch_.arm(folder, definition(), &error)) {
+    showStatus("Could not watch folder: " + error, true);
+    refreshButtons();
+    return;
+  }
+  watchEnabled_ = true;
+  pendingWatchInputs_.clear();
+  watchStatusLabel_->setText(
+      "Watching: " + folderWatch_.folder() +
+      "  |  existing files ignored  |  new stable files only");
+  watchStatusLabel_->setToolTip(
+      "Non-recursive, local-only monitoring. Stops when this editor is closed. "
+      "Each qualifying file is saved as a new Workflow Job.");
+  watchStatusLabel_->show();
+  watchTimer_->start();
+  showStatus("Watching enabled. Drop a new file into this folder to create a job.");
+  refreshButtons();
+}
+
+void WorkflowDialog::pollWatchedFolder() {
+  if (!watchEnabled_ || busy_) return;  // Prevent observing our own new outputs.
+  const auto result = folderWatch_.scan(QDateTime::currentMSecsSinceEpoch());
+  if (!result.ok()) {
+    watchEnabled_ = false;
+    watchTimer_->stop();
+    pendingWatchInputs_.clear();
+    folderWatch_.stop();
+    watchStatusLabel_->hide();
+    showStatus("Folder watcher stopped: " + result.error, true);
+    refreshButtons();
+    return;
+  }
+  pendingWatchInputs_.append(result.readyPaths);
+  if (!pendingWatchInputs_.isEmpty()) {
+    runNextWatchedFile();
+  }
+}
+
+void WorkflowDialog::runNextWatchedFile() {
+  if (busy_ || !watchEnabled_ || pendingWatchInputs_.isEmpty()) return;
+  const QString path = pendingWatchInputs_.takeFirst();
+  const QJsonObject workflow = folderWatch_.workflow();
+  busy_ = true;
+  stopRequested_ = std::make_shared<std::atomic_bool>(false);
+  runProgress_->setVisible(true);
+  runProgress_->setRange(0, 0);
+  runProgress_->setFormat("Preparing new file...");
+  stopButton_->show();
+  refreshButtons();
+  showStatus("New stable file: " + QFileInfo(path).fileName() + ". Queuing local job...");
+
+  struct JobOutcome {
+    QString path;
+    QString jobId;
+    WorkerResult result;
+  };
+
+  QPointer<WorkflowDialog> guard(this);
+  const auto cancellation = stopRequested_;
+  auto* watcher = new QFutureWatcher<JobOutcome>(this);
+  connect(watcher, &QFutureWatcher<JobOutcome>::finished, this, [this, watcher] {
+    const auto outcome = watcher->result();
+    watcher->deleteLater();
+
+    const auto report = QJsonDocument::fromJson(outcome.result.output.toUtf8()).object();
+    QStringList outputs;
+    for (const auto& value : report.value("created_output_paths").toArray()) {
+      outputs.append(value.toString());
+    }
+    // Suppress generated siblings before resuming the filesystem scan.
+    folderWatch_.ignoreCreatedOutputs(outputs);
+
+    finish(true, outcome.result);
+    refreshJobs();
+    if (!watchEnabled_) {
+      folderWatch_.stop();
+    } else {
+      watchStatusLabel_->setText(
+          "Watching: " + folderWatch_.folder() +
+          "  |  processed " + QFileInfo(outcome.path).fileName() +
+          "  |  waiting for new stable files");
+      runNextWatchedFile();
+    }
+  });
+
+  watcher->setFuture(QtConcurrent::run([workflow, path, guard, cancellation]() -> JobOutcome {
+    WorkflowJobService jobs;
+    const auto queued = jobs.enqueue(workflow, {path});
+    if (!queued.ok) return {path, {}, queued};
+    const auto parsed = QJsonDocument::fromJson(queued.output.toUtf8()).object();
+    const QString jobId = parsed.value("job").toObject().value("id").toString();
+    if (jobId.isEmpty()) {
+      return {path, {}, WorkerResult{false, {},
+                                    "Local queue did not return a job ID."}};
+    }
+    auto callback = [guard](const QJsonObject& event) {
+      if (!guard) return;
+      QMetaObject::invokeMethod(
+          guard.data(), [guard, event] {
+            if (!guard || !guard->busy_) return;
+            const int count = event.value("completed_operations").toInt();
+            const int total = event.value("total_operations").toInt();
+            if (total > 0) {
+              guard->runProgress_->setRange(0, total);
+              guard->runProgress_->setValue(count);
+              guard->runProgress_->setFormat(
+                  QString("%1 / %2").arg(count).arg(total));
+            }
+            if (!event.value("node_id").toString().isEmpty()) {
+              guard->showStatus(QString("Watching: %1 (%2 / %3)")
+                  .arg(event.value("node_id").toString())
+                  .arg(count)
+                  .arg(total));
+            }
+          }, Qt::QueuedConnection);
+    };
+    return {path, jobId, jobs.execute(jobId, callback, cancellation.get())};
+  }));
+}
+
 void WorkflowDialog::refreshButtons() {
   const bool editing = !busy_;
   const bool linear = !graphMode_ && !busy_;
