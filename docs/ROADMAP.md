@@ -50,7 +50,8 @@ Implemented in Workflow v1:
 
 Next:
 
-- visual drag-and-connect graph authoring (initial GUI editing is linear);
+- draggable DAG graph with editable links, branching, joins and cycle protection: implemented in v2.2;
+- persisted visual layout, accessible connection shortcuts and canvas zoom;
 - streaming per-operation progress and cooperative stop: implemented in Workflow v2 phase 1;
 - failed-action retry and replay;
 - durable queue/history and verified crash recovery;
