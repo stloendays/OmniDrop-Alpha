@@ -31,6 +31,8 @@ New optional workspaces:
   live progress, safe stop and non-destructive output tracking.
 - [Workflow Jobs](docs/WORKFLOW_JOBS.md) - save local job records, view progress, and retry
   failed/interrupted workflows explicitly without removing previously created files.
+- [Workflow Folder Watch](docs/WORKFLOW_WATCH.md) - opt in to watching one directory,
+  safely process stable new files as durable Jobs, and exclude generated outputs.
 
 ## Status
 
@@ -128,6 +130,10 @@ omnidrop-cli translate <file> --from en --to zh --provider argos|mymemory|libret
 omnidrop-cli workflow validate <workflow.json>
 omnidrop-cli workflow plan <workflow.json> <file> [...]
 omnidrop-cli workflow run <workflow.json> <file> [...]
+omnidrop-cli workflow enqueue <workflow.json> <file> [...]
+omnidrop-cli workflow jobs
+omnidrop-cli workflow execute <job-id>
+omnidrop-cli workflow watch <workflow.json> <folder> [--max-files N]
 omnidrop-cli worker-ping
 ```
 
