@@ -46,6 +46,41 @@ if ($ping -notmatch '"ok"\s*:\s*true') {
   throw "Packaged worker ping did not return a successful JSON response: $ping"
 }
 
+# Verify a complete installed-package local workflow, not just worker ping.
+$workflowFile = Join-Path $root "workflows\examples\text-clean.omniworkflow.json"
+if (-not (Test-Path $workflowFile)) {
+  throw "Packaged workflow examples are missing."
+}
+$smokeDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("OmniDropAlphaSmoke-" + [guid]::NewGuid().ToString("N"))
+New-Item -Path $smokeDirectory -ItemType Directory -Force | Out-Null
+try {
+  $source = Join-Path $smokeDirectory "sample.txt"
+  [System.IO.File]::WriteAllText($source, "alpha  `nalpha  `n", [System.Text.UTF8Encoding]::new($false))
+
+  $validated = (& $cli workflow validate $workflowFile | Out-String).Trim()
+  if ($LASTEXITCODE -ne 0 -or $validated -notmatch '"node_count"') {
+    throw "Packaged Workflow validation failed: $validated"
+  }
+
+  $resultText = (& $cli workflow run $workflowFile $source | Out-String).Trim()
+  if ($LASTEXITCODE -ne 0) {
+    throw "Packaged Workflow run failed: $resultText"
+  }
+  $result = $resultText | ConvertFrom-Json
+  if (-not $result.ok -or $result.output_paths.Count -ne 1) {
+    throw "Packaged Workflow result is invalid: $resultText"
+  }
+  if (-not (Test-Path $result.output_paths[0])) {
+    throw "Packaged Workflow did not generate its reported output."
+  }
+  if ([System.IO.File]::ReadAllText($source) -ne "alpha  `nalpha  `n") {
+    throw "Packaged Workflow unexpectedly modified the original file."
+  }
+}
+finally {
+  Remove-Item -Path $smokeDirectory -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 $first = $null
 $second = $null
 

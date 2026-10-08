@@ -34,9 +34,23 @@ New optional workspaces:
 - [Workflow Folder Watch](docs/WORKFLOW_WATCH.md) - opt in to watching one directory,
   safely process stable new files as durable Jobs, and exclude generated outputs.
 
+## Windows Alpha download
+
+The latest reviewed Alpha preview is published on
+[GitHub Releases](https://github.com/stloendays/OmniDrop-Alpha/releases).
+This release uses a tested **Windows x64 ZIP**, not a signed installer.
+It includes the Qt DLLs and Python worker libraries but still needs an
+installed **Python 3.10+** executable on PATH (or `OMNIDROP_PYTHON`).
+
+Download the ZIP and its `.sha256`, verify its hash, then unzip into a
+dedicated folder outside any Git checkout. Use `OmniDrop.exe` for the
+desktop UI or `omnidrop-cli.exe` for automation. No hidden update is
+performed on startup. See the matching release notes for limits and
+optional offline model dependencies.
+
 ## Status
 
-OmniDrop is in early alpha (`0.1.0`). The current vertical slice includes:
+OmniDrop is in early alpha (`0.2.0`). The current vertical slice includes:
 
 - Qt 6 / C++20 desktop shell with drag-and-drop and an Open File path.
 - File-kind detection and context-aware action recommendations.
