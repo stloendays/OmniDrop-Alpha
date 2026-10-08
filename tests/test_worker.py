@@ -194,6 +194,27 @@ class WorkerTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), original_bytes)
 
     @unittest.skipUnless(worker.pillow_available(), "Pillow is not installed")
+    def test_resize_half_paletted_png_preserves_transparency(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "indexed.png"
+            palette_image = Image.new("P", (8, 8))
+            palette_image.putpalette([0, 0, 0, 255, 0, 0] + [0] * 762)
+            palette_image.putdata([0 if x < 4 else 1 for _ in range(8) for x in range(8)])
+            palette_image.save(path, transparency=0)
+
+            result = worker.handle(
+                {"command": "run", "action_id": "image.resize_half", "path": str(path)}
+            )
+            self.assertTrue(result["ok"], result)
+            with Image.open(result["output_path"]) as image:
+                self.assertEqual(image.size, (4, 4))
+                self.assertEqual(image.mode, "RGBA")
+                self.assertEqual(image.getpixel((0, 2))[3], 0)
+                self.assertEqual(image.getpixel((3, 2))[3], 255)
+
+    @unittest.skipUnless(worker.pillow_available(), "Pillow is not installed")
     def test_resize_half_normalizes_exif_orientation(self):
         from PIL import Image
 
