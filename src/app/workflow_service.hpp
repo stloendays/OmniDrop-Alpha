@@ -24,6 +24,11 @@ class WorkflowService {
   WorkerResult validate(const QJsonObject& document) const;
   WorkerResult plan(const QJsonObject& document, const QStringList& paths) const;
   WorkerResult run(const QJsonObject& document, const QStringList& paths) const;
+  WorkerResult runStreaming(
+      const QJsonObject& document,
+      const QStringList& paths,
+      const PythonWorkerClient::WorkflowEventCallback& onEvent,
+      const std::atomic_bool* stopRequested = nullptr) const;
 
  private:
   PythonWorkerClient worker_;
