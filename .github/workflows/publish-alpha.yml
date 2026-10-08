@@ -1,0 +1,150 @@
+name: publish-alpha
+
+# Publication requires two gates:
+# 1. A reviewed main-branch release request/version bump.
+# 2. A successful, matching main-branch build with a smoke-tested Windows artifact.
+on:
+  workflow_run:
+    workflows: [build]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: omnidrop-alpha-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tested canonical commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate canonical version, tag and requested publication
+        id: preflight
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          main_sha="$(git rev-parse refs/remotes/origin/main)"
+          checked_sha="$(git rev-parse HEAD)"
+          if [[ "$main_sha" != "$SOURCE_SHA" || "$checked_sha" != "$SOURCE_SHA" ]]; then
+            echo "::error::Refusing to publish a workflow artifact from a non-current main commit."
+            exit 1
+          fi
+
+          # CMake project(VERSION) is the authoritative product version.
+          version="$(sed -nE 's/^project\(OmniDrop VERSION ([0-9]+\.[0-9]+\.[0-9]+) LANGUAGES CXX\)$/\1/p' CMakeLists.txt)"
+          request="$(tr -d '\r\n' < .github/ALPHA_RELEASE_TARGET)"
+          if [[ -z "$version" || "$request" != "v$version" ]]; then
+            echo "::error::Release request does not match the authoritative CMake version."
+            exit 1
+          fi
+          if [[ ! -f "docs/releases/$request.md" ]]; then
+            echo "::error::Release notes do not exist for $request."
+            exit 1
+          fi
+
+          if gh release view "$request" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            existing_draft="$(gh release view "$request" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
+            if [[ "$existing_draft" != "true" ]]; then
+              echo "Release $request is already published. Leaving it untouched."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Resuming an existing draft release for $request."
+          elif git ls-remote --exit-code --tags origin "refs/tags/$request" >/dev/null 2>&1; then
+            echo "::error::Tag exists without a release. Refusing to reuse or move it."
+            exit 1
+          fi
+
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$request" >> "$GITHUB_OUTPUT"
+          echo "commit=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Download Windows package from successful main CI
+        if: steps.preflight.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name OmniDrop-windows-dev --dir release-assets
+
+      - name: Verify archive checksum, version and required portable contents
+        if: steps.preflight.outputs.publish == 'true'
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          archive="OmniDrop-${RELEASE_VERSION}-windows-dev.zip"
+          cd release-assets
+          test -s "$archive"
+          test -s "$archive.sha256"
+          sha256sum -c "$archive.sha256"
+          for required in OmniDrop.exe omnidrop-cli.exe python/worker.py \
+                          workflows/examples/text-clean.omniworkflow.json \
+                          Qt6Core.dll platforms/qwindows.dll; do
+            if ! unzip -Z1 "$archive" | grep -Fxq "$required"; then
+              echo "::error::Missing packaged file $required"
+              exit 1
+            fi
+          done
+          echo "Verified archive SHA-256 and required packaged files."
+
+      - name: Create draft, attach checked files, then publish prerelease
+        if: steps.preflight.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.preflight.outputs.version }}
+          RELEASE_TAG: ${{ steps.preflight.outputs.tag }}
+          SOURCE_SHA: ${{ steps.preflight.outputs.commit }}
+        run: |
+          set -euo pipefail
+          archive="release-assets/OmniDrop-${RELEASE_VERSION}-windows-dev.zip"
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$SOURCE_SHA" \
+              --draft --prerelease \
+              --title "OmniDrop v${RELEASE_VERSION} Alpha (Windows x64)" \
+              --notes-file "docs/releases/$RELEASE_TAG.md"
+          fi
+
+          actual_tag_sha="$(git ls-remote origin "refs/tags/$RELEASE_TAG" | cut -f1)"
+          if [[ "$actual_tag_sha" != "$SOURCE_SHA" ]]; then
+            echo "::error::Release tag is not at the tested main commit."
+            exit 1
+          fi
+          gh release upload "$RELEASE_TAG" "$archive" "$archive.sha256" \
+            --repo "$GITHUB_REPOSITORY" --clobber
+          asset_count="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+                         --json assets --jq '.assets | length')"
+          if [[ "$asset_count" -lt 2 ]]; then
+            echo "::error::Release draft is missing required ZIP/checksum assets."
+            exit 1
+          fi
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --draft=false --prerelease
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json url,tagName,isDraft,isPrerelease,assets
