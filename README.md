@@ -26,6 +26,9 @@ New optional workspaces:
 - [Offline voice packs](docs/VOICE_PACKS.md) - attach a verified small ONNX speech model and
   convert text/subtitles to WAV without uploading the source. The model pack is a separate
   artifact; an optional Piper runtime is required.
+- [Workflow Engine](docs/WORKFLOWS.md) - link existing local file actions into reusable,
+  versioned pipelines. Includes Qt recipe builder, CLI preflight/execution, DAG branching,
+  dependency-aware file passing, and non-destructive output tracking.
 
 ## Status
 
