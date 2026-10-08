@@ -7,6 +7,9 @@
 #include <QJsonObject>
 #include <QStringList>
 
+#include <atomic>
+#include <memory>
+
 class QCloseEvent;
 class QComboBox;
 class QLabel;
@@ -14,6 +17,7 @@ class QLineEdit;
 class QListWidget;
 class QPlainTextEdit;
 class QPushButton;
+class QProgressBar;
 
 namespace omnidrop {
 
@@ -67,6 +71,10 @@ class WorkflowDialog final : public QDialog {
   QPushButton* newButton_{nullptr};
   QPushButton* planButton_{nullptr};
   QPushButton* runButton_{nullptr};
+  QPushButton* stopButton_{nullptr};
+  QProgressBar* runProgress_{nullptr};
+  std::shared_ptr<std::atomic_bool> stopRequested_;
+
 };
 
 }  // namespace omnidrop
