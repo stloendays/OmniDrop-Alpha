@@ -149,6 +149,25 @@ int main(int argc, char** argv) {
   assert(removed.ok);
   assert(decode(service.listJobs()).value("jobs").toArray().size() == 1);
 
+  // Old v2.3 schemas had no "events" field. They must remain readable.
+  const auto legacyPath = temp.filePath("state/legacy-jobs.json");
+  {
+    QFile oldStore(legacyPath);
+    assert(oldStore.open(QIODevice::WriteOnly));
+    const QJsonObject oldRecord{
+        {"schema_version", 1},
+        {"jobs", QJsonArray{QJsonObject{
+            {"id", id}, {"status", "completed"}, {"attempts", 1},
+        }}},
+    };
+    const auto payload = QJsonDocument(oldRecord).toJson(QJsonDocument::Compact);
+    assert(oldStore.write(payload) == payload.size());
+  }
+  omnidrop::WorkflowJobService legacy(legacyPath);
+  const auto restored = decode(legacy.events(id));
+  assert(restored.value("ok").toBool());
+  assert(restored.value("events").toArray().isEmpty());
+
   // Invalid state is never silently overwritten or replaced by an empty store.
   const auto brokenPath = temp.filePath("corrupt.json");
   {
