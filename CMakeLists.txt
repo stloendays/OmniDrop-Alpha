@@ -126,6 +126,15 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
       PASS_REGULAR_EXPRESSION "^${PROJECT_VERSION}"
     )
 
+    add_executable(omnidrop_workflow_folder_cli_tests
+      tests/workflow_folder_watch_cli_tests.cpp)
+    target_link_libraries(omnidrop_workflow_folder_cli_tests PRIVATE omnidrop_adapters Qt6::Core)
+    add_test(NAME omnidrop_workflow_folder_cli_tests
+             COMMAND omnidrop_workflow_folder_cli_tests
+                     "$<TARGET_FILE:omnidrop_cli>"
+                     "${CMAKE_CURRENT_SOURCE_DIR}/workflows/examples/text-clean.omniworkflow.json")
+    set_tests_properties(omnidrop_workflow_folder_cli_tests PROPERTIES TIMEOUT 45)
+
     add_test(NAME omnidrop_cli_workflow_jobs COMMAND omnidrop_cli workflow jobs)
     set_tests_properties(omnidrop_cli_workflow_jobs PROPERTIES
       PASS_REGULAR_EXPRESSION "schema_version"
