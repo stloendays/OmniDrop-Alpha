@@ -1,6 +1,7 @@
 #include "gui/workflow_dialog.hpp"
 
 #include "app/action_catalog.hpp"
+#include "gui/workflow_graph_view.hpp"
 
 #include <QCloseEvent>
 #include <QComboBox>
@@ -22,6 +23,7 @@
 #include <QPushButton>
 #include <QSet>
 #include <QSplitter>
+#include <QTabWidget>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <QtConcurrent/QtConcurrentRun>
@@ -124,19 +126,27 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
     stepButtons->addWidget(button);
   }
   leftLayout->addLayout(stepButtons);
+  graphEditButton_ = new QPushButton("Edit connections on graph", left);
+  graphEditButton_->setToolTip(
+      "Switch to visual DAG editing: drag nodes and connect their ports.");
+  leftLayout->addWidget(graphEditButton_);
 
   auto* right = new QWidget(split);
   auto* rightLayout = new QVBoxLayout(right);
   rightLayout->setContentsMargins(8, 0, 0, 0);
-  auto* outputTitle = new QLabel("Execution plan / results", right);
+  auto* outputTitle = new QLabel("Workflow graph and execution", right);
   outputTitle->setObjectName("workflowSection");
   rightLayout->addWidget(outputTitle);
-  outputView_ = new QPlainTextEdit(right);
+  rightTabs_ = new QTabWidget(right);
+  graphView_ = new WorkflowGraphView(rightTabs_);
+  rightTabs_->addTab(graphView_, "Graph");
+  outputView_ = new QPlainTextEdit(rightTabs_);
   outputView_->setReadOnly(true);
   outputView_->setPlaceholderText(
-      "Preview runs validation and dependency checks without creating files.\n"
-      "Run executes local actions and reports outputs from each step.");
-  rightLayout->addWidget(outputView_, 1);
+      "Preview checks dependencies without writing files.\n"
+      "Run shows completed nodes, output paths and partial results.");
+  rightTabs_->addTab(outputView_, "Execution results");
+  rightLayout->addWidget(rightTabs_, 1);
   split->addWidget(left);
   split->addWidget(right);
   split->setStretchFactor(0, 1);
