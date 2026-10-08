@@ -18,11 +18,14 @@ class QListWidget;
 class QPlainTextEdit;
 class QPushButton;
 class QProgressBar;
+class QTabWidget;
 
 namespace omnidrop {
 
 // A lightweight workflow editor: sequential authoring plus read-only
 // inspection/execution of arbitrary v1 DAG manifests.
+class WorkflowGraphView;
+
 class WorkflowDialog final : public QDialog {
  public:
   explicit WorkflowDialog(const QStringList& selectedFiles = {}, QWidget* parent = nullptr);
@@ -33,6 +36,10 @@ class WorkflowDialog final : public QDialog {
 
  private:
   void addStep(const QString& actionId);
+  void removeStep();
+  void convertToGraph();
+  void refreshGraph();
+  void refreshGraphSteps();
   void moveStep(int offset);
   void applyTemplate(int preset);
   void loadWorkflow();
@@ -50,7 +57,7 @@ class WorkflowDialog final : public QDialog {
   WorkflowService service_;
   QStringList inputs_;
   QJsonObject loadedDefinition_;
-  bool readOnlyGraph_{false};
+  bool graphMode_{false};
   bool busy_{false};
 
   QLineEdit* nameEdit_{nullptr};
@@ -60,6 +67,9 @@ class WorkflowDialog final : public QDialog {
   QComboBox* templateCombo_{nullptr};
   QListWidget* stepsList_{nullptr};
   QPlainTextEdit* outputView_{nullptr};
+  WorkflowGraphView* graphView_{nullptr};
+  QTabWidget* rightTabs_{nullptr};
+  QPushButton* graphEditButton_{nullptr};
 
   QPushButton* addButton_{nullptr};
   QPushButton* removeButton_{nullptr};
