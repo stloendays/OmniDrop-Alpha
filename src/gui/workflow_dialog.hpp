@@ -3,6 +3,7 @@
 #include "adapters/python_worker_client.hpp"
 #include "app/workflow_service.hpp"
 #include "app/workflow_job_service.hpp"
+#include "app/workflow_folder_watch_service.hpp"
 
 #include <QDialog>
 #include <QJsonObject>
@@ -20,6 +21,7 @@ class QPlainTextEdit;
 class QPushButton;
 class QProgressBar;
 class QTabWidget;
+class QTimer;
 
 namespace omnidrop {
 
@@ -45,6 +47,9 @@ class WorkflowDialog final : public QDialog {
   void refreshJobs();
   void executeSelectedJob();
   void removeSelectedJob();
+  void toggleFolderWatch();
+  void pollWatchedFolder();
+  void runNextWatchedFile();
   void moveStep(int offset);
   void applyTemplate(int preset);
   void loadWorkflow();
@@ -61,6 +66,9 @@ class WorkflowDialog final : public QDialog {
 
   WorkflowService service_;
   WorkflowJobService jobs_;
+  WorkflowFolderWatchService folderWatch_;
+  QStringList pendingWatchInputs_;
+  bool watchEnabled_{false};
   QStringList inputs_;
   QJsonObject loadedDefinition_;
   bool graphMode_{false};
@@ -81,6 +89,9 @@ class WorkflowDialog final : public QDialog {
   QPushButton* refreshJobsButton_{nullptr};
   QPushButton* executeJobButton_{nullptr};
   QPushButton* removeJobButton_{nullptr};
+  QPushButton* watchButton_{nullptr};
+  QLabel* watchStatusLabel_{nullptr};
+  QTimer* watchTimer_{nullptr};
 
   QPushButton* addButton_{nullptr};
   QPushButton* removeButton_{nullptr};
