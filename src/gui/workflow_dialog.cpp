@@ -819,10 +819,10 @@ void WorkflowDialog::refreshButtons() {
   downButton_->setEnabled(linear && index >= 0 && index + 1 < stepsList_->count());
   graphEditButton_->setEnabled(linear && stepsList_->count() > 0);
   graphEditButton_->setVisible(!graphMode_);
-  chooseButton_->setEnabled(!busy_);
-  loadButton_->setEnabled(!busy_);
+  chooseButton_->setEnabled(editing);
+  loadButton_->setEnabled(editing);
   saveButton_->setEnabled(editing && stepsList_->count() > 0);
-  newButton_->setEnabled(!busy_);
+  newButton_->setEnabled(editing);
   planButton_->setEnabled(editing && stepsList_->count() > 0 && !inputs_.isEmpty());
   runButton_->setEnabled(planButton_->isEnabled());
   watchButton_->setText(watchEnabled_ ? "Stop Watching" : "Watch folder...");
@@ -948,6 +948,11 @@ void WorkflowDialog::showStatus(const QString& message, bool error) {
 }
 
 void WorkflowDialog::reject() {
+  if (busy_) {
+    QMessageBox::information(this, "Workflow running",
+                             "A local action is still running. Close this editor once it finishes.");
+    return;
+  }
   if (watchEnabled_) {
     if (QMessageBox::question(
             this, "Stop folder watching?",
@@ -960,15 +965,14 @@ void WorkflowDialog::reject() {
     watchTimer_->stop();
     folderWatch_.stop();
   }
-  if (busy_) {
-    QMessageBox::information(this, "Workflow running",
-                             "A local action is still running. Close this editor once it finishes.");
-    return;
-  }
   QDialog::reject();
 }
 
 void WorkflowDialog::closeEvent(QCloseEvent* event) {
+  if (busy_) {
+    event->ignore();
+    return;
+  }
   if (watchEnabled_) {
     const auto answer = QMessageBox::question(
         this, "Stop folder watching?",
@@ -981,10 +985,6 @@ void WorkflowDialog::closeEvent(QCloseEvent* event) {
     watchEnabled_ = false;
     watchTimer_->stop();
     folderWatch_.stop();
-  }
-  if (busy_) {
-    event->ignore();
-    return;
   }
   QDialog::closeEvent(event);
 }
