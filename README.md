@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.2.0"><strong>Download Windows Alpha</strong></a>
+  <a href="https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.3.0"><strong>Download Windows Alpha</strong></a>
   · <a href="#quick-start">Quick start</a>
   · <a href="#what-can-it-do">Features</a>
   · <a href="#workflows">Workflows</a>
@@ -29,14 +29,14 @@
      No placeholder artwork or broken image link is published yet. -->
 
 > [!IMPORTANT]
-> **Early Alpha · v0.2.0.** The current downloadable package is an **unsigned Windows x64 portable ZIP**, not a production-ready installer. It contains Qt and bundled worker libraries but **requires an installed Python 3.10+ interpreter**. See [release notes](docs/releases/v0.2.0.md) before testing.
+> **Early Alpha · v0.3.0.** The Windows x64 portable ZIP includes Qt, a verified isolated Python 3.13.16 interpreter, and the core worker libraries. No system Python installation is required. It is still **not a Windows Authenticode-signed installer**; provenance is independently verified through GitHub's signed attestations. See [release notes](docs/releases/v0.3.0.md).
 
-**Next-package improvement:** once this feature branch passes CI and is
-integrated into a new release, Windows ZIPs will contain an isolated Python
-3.13 runtime and carry verifiable GitHub build provenance. The published
-v0.2.0 download above is **not** retroactively changed; Windows Authenticode
-still requires a publisher certificate. See [embedded Python](docs/PYTHON_RUNTIME.md)
-and [signing](docs/CODE_SIGNING.md).
+**Runtime and integrity:** OmniDrop v0.3.0 ships a pinned embedded Python
+runtime and SHA-256-verified Windows packages. The publishing workflow also
+verifies signed GitHub build provenance against the exact source commit.
+Authenticode publisher identity still requires a trusted code-signing
+certificate. The older v0.2.0 asset is unchanged. See
+[embedded Python](docs/PYTHON_RUNTIME.md) and [signing](docs/CODE_SIGNING.md).
 
 ## Why OmniDrop?
 
@@ -74,21 +74,21 @@ Unlike a general-purpose office suite, OmniDrop concentrates on the file operati
 
 ### Download for Windows
 
-1. Open **[OmniDrop v0.2.0 Alpha](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.2.0)** and get `OmniDrop-0.2.0-windows-dev.zip` **plus** its `.sha256` file.
+1. Open **[OmniDrop v0.3.0 Alpha](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.3.0)** and get `OmniDrop-0.3.0-windows-dev.zip` **plus** its `.sha256` file.
 2. Compare the archive's SHA-256 against the companion checksum. In PowerShell:
 
    ```powershell
-   Get-FileHash .\OmniDrop-0.2.0-windows-dev.zip -Algorithm SHA256
-   Get-Content .\OmniDrop-0.2.0-windows-dev.zip.sha256
+   Get-FileHash .\OmniDrop-0.3.0-windows-dev.zip -Algorithm SHA256
+   Get-Content .\OmniDrop-0.3.0-windows-dev.zip.sha256
    ```
 
 3. Unzip into a dedicated folder outside a Git checkout, for example `C:\Apps\OmniDrop`.
-4. Make sure `python --version` reports **Python 3.10+**, or configure `OMNIDROP_PYTHON`.
+4. No Python installation is needed. Advanced users may override the packaged interpreter with `OMNIDROP_PYTHON`.
 5. Launch **`OmniDrop.exe`**, drop a file and choose an available action.
 
-The portable package bundles Qt and selected Python worker dependencies, **not the Python interpreter**. Optional translation language packs and voice models are separate add-ons. Windows may warn about the unsigned Alpha executable.
+The portable package bundles Qt, an isolated Python 3.13 interpreter, and selected Python worker dependencies. Optional translation language packs and voice models are separate add-ons. Windows may warn about the unsigned Authenticode executable.
 
-**Troubleshooting:** from the extracted folder, run `.\omnidrop-cli.exe worker-ping` to check whether the Python worker can start. See [release limitations](docs/releases/v0.2.0.md).
+**Troubleshooting:** from the extracted folder, run `.\omnidrop-cli.exe worker-ping` to check whether the Python worker can start. See [release limitations](docs/releases/v0.3.0.md).
 
 ### Three ways to use it
 
@@ -190,7 +190,7 @@ OmniDrop is being built in public. Priorities include:
 - Better workflow history, validated recovery, notifications and scheduling.
 - An extensible plugin / agent integration boundary with stable callable interfaces.
 
-These are **roadmap items, not promises of features in v0.2.0**. See the [detailed roadmap](docs/ROADMAP.md) and [open issues](https://github.com/stloendays/OmniDrop-Alpha/issues).
+These are **roadmap items, not promises of features in v0.3.0**. See the [detailed roadmap](docs/ROADMAP.md) and [open issues](https://github.com/stloendays/OmniDrop-Alpha/issues).
 
 ## Contributing and community
 
