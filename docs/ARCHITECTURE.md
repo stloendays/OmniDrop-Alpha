@@ -96,6 +96,32 @@ Future long-running jobs must move to a framed persistent protocol or local IPC 
 explicit job IDs, progress events, cancellation, timeout, and crash recovery. Do not overload this
 one-shot v1 protocol silently.
 
+## Workflow engine contract v1
+
+Workflow documents are independent .omniworkflow.json files with schema_version=1,
+human-readable names, stable local action IDs, and node sources referencing
+"$input" or preceding graph node IDs. Source order defines merge order, while
+stable topological sorting defines execution order.
+
+The worker v1 protocol gains three additive commands:
+
+```json
+{"command":"workflow.validate","workflow":{"schema_version":1,"name":"Example","nodes":[...]}}
+{"command":"workflow.plan","workflow":{...},"paths":["C:/notes.txt"]}
+{"command":"workflow.run","workflow":{...},"paths":["C:/notes.txt"]}
+```
+
+WorkflowService is the reusable C++ facade for Qt, CLI and later agent callers.
+WorkflowEngine is the deterministic local Python executor, and dispatches only
+allowlisted existing run/run_batch actions through the same worker handler.
+Workflows may not include raw scripts, network commands or remote translations.
+Preview verifies types/capabilities without writing files. Execution records
+a run_id, each node status, final outputs and all created intermediate outputs.
+
+Manifest saves are atomic in Qt. Running from the CLI does not automatically
+persist a queue; durable monitoring and framed progress are future work.
+See docs/WORKFLOWS.md for schema, limits and failure semantics.
+
 ## Optional translation worker command
 
 Translation is an **explicit standalone command**, not an automatic file action.
