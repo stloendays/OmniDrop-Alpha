@@ -2,6 +2,7 @@
 
 #include "gui/drop_zone.hpp"
 #include "gui/translation_dialog.hpp"
+#include "gui/workflow_dialog.hpp"
 
 #include "adapters/diagnostics_service.hpp"
 
@@ -76,6 +77,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   brand->setObjectName("brand");
   header->addWidget(brand);
   header->addStretch();
+  auto* workflowButton = new QPushButton("Workflow...", root);
+  workflowButton->setObjectName("secondaryButton");
+  header->addWidget(workflowButton);
   auto* translateButton = new QPushButton("Translate...", root);
   translateButton->setObjectName("secondaryButton");
   auto* openButton = new QPushButton("Open files", root);
@@ -145,6 +149,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
   auto* toolsMenu = menuBar()->addMenu("Tools");
   auto* translateAction = toolsMenu->addAction("Translate text or subtitles...");
+  auto* workflowAction = toolsMenu->addAction("Workflow builder...");
 
   auto* historyMenu = menuBar()->addMenu("History");
   auto* clearRecent = historyMenu->addAction("Clear recent files");
@@ -167,6 +172,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     auto* dialog = new TranslationDialog(preferred, this);
     dialog->show();
   };
+  const auto openWorkflow = [this] {
+    auto* dialog = new WorkflowDialog(currentBatch_.paths, this);
+    dialog->show();
+  };
+  connect(workflowButton, &QPushButton::clicked, this, openWorkflow);
+  connect(workflowAction, &QAction::triggered, this, openWorkflow);
   connect(translateButton, &QPushButton::clicked, this, openTranslation);
   connect(translateAction, &QAction::triggered, this, openTranslation);
   connect(openButton, &QPushButton::clicked, this, chooseFiles);
