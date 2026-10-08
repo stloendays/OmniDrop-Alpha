@@ -22,7 +22,10 @@ FileInspection OmniDropService::inspectStatic(const QString& path) const {
   if (kind == FileKind::Text || kind == FileKind::Developer) {
     const auto suffix = info.suffix().toLower();
     for (auto& action : actions) {
-      if (action.id == "text.format_json") {
+      if (action.id == "text.to_speech") {
+        static const QSet<QString> narratable{"txt", "md", "markdown", "srt", "vtt"};
+        action.available = action.available && narratable.contains(suffix);
+      } else if (action.id == "text.format_json") {
         action.available = action.available && suffix == "json";
       } else if (action.id == "text.format_xml") {
         action.available = action.available && suffix == "xml";
