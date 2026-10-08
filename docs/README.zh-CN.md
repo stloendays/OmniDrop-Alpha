@@ -10,9 +10,9 @@
 
 <!-- Screenshot slot: assets/readme/hero.webp. Intentionally empty until real imagery is prepared. -->
 
-**当前阶段：v0.2.0 Alpha（Windows x64 预览版）**
+**当前阶段：v0.3.0 Alpha（Windows x64 预览版）**
 
-[下载 Windows Alpha](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.2.0) · [工作流文档](WORKFLOWS.md) · [功能清单](ACTIONS.md) · [开发路线图](ROADMAP.md) · [提交问题](https://github.com/stloendays/OmniDrop-Alpha/issues)
+[下载 Windows Alpha](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.3.0) · [工作流文档](WORKFLOWS.md) · [功能清单](ACTIONS.md) · [开发路线图](ROADMAP.md) · [提交问题](https://github.com/stloendays/OmniDrop-Alpha/issues)
 
 ## OmniDrop 有什么特别之处？
 
@@ -41,12 +41,12 @@
 
 ## Windows 快速开始
 
-1. 打开 [v0.2.0 Release](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.2.0)，下载 `OmniDrop-0.2.0-windows-dev.zip` 和同名 `.sha256` 校验文件。
+1. 打开 [v0.3.0 Release](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.3.0)，下载 `OmniDrop-0.3.0-windows-dev.zip` 和同名 `.sha256` 校验文件。
 2. 对比 ZIP 的 SHA-256，解压到专用文件夹，例如 `C:\Apps\OmniDrop`（不要直接解压到 Git 工作区）。
-3. 系统需要已安装 **Python 3.10+**，并且 `python` 命令可用。也可以设置 `OMNIDROP_PYTHON`。
+3. 无需单独安装 Python：软件包已内置经过 SHA-256 验证的 CPython 3.13.16。高级用户仍可通过 `OMNIDROP_PYTHON` 指定外部解释器。
 4. 双击 `OmniDrop.exe`，拖入文件并选择推荐操作。
 
-当前 ZIP 包含 Qt 和部分 Python 依赖，但**不自带 Python 解释器、语音模型或可选离线翻译模型**；也不是签名安装器。
+当前 ZIP 包含 Qt、独立的 Python 解释器及 Pillow/pypdf 等核心依赖，但**不自带可选语音模型或离线翻译模型**；也不是 Windows Authenticode 签名安装器。ZIP 有 SHA-256 校验和 GitHub 签名构建来源证明。
 
 ## 三个典型用法
 

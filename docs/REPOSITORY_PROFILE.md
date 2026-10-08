@@ -26,8 +26,9 @@ https://github.com/stloendays/OmniDrop-Alpha/releases
 `windows-desktop`, `python`, `workflow-engine`, `automation`,
 `pdf-tools`, `image-processing`, `open-source`
 
-Use only applicable tags; do not claim mature AI, a Python-free portable
-runtime, a production installer, cross-platform desktop support or full
+Use only applicable tags; the Windows x64 portable release now includes its
+own Python interpreter. Do not claim mature AI, a signed production installer,
+cross-platform desktop support or full
 Office-suite replacement.
 
 ## Social preview

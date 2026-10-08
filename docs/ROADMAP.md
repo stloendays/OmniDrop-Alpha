@@ -216,7 +216,7 @@ Next:
 ## Phase 5 - distribution
 
 - final application icon and complete Windows identity;
-- self-contained worker runtime so ordinary users do not need to install Python;
+- self-contained CPython 3.13 worker runtime for Windows x64: implemented in v0.3.0 Alpha;
 - signed installer/uninstaller;
 - portable package;
 - verified auto-update with stable/beta channels;
