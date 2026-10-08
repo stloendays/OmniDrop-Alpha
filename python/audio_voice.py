@@ -138,13 +138,9 @@ def _extract_speech_text(path: Path) -> str:
     return result
 
 
-def _unique_wav(path: Path) -> Path:
-    candidate = path.with_name(f"{path.stem}.spoken.wav")
-    index = 2
-    while candidate.exists():
-        candidate = path.with_name(f"{path.stem}.spoken-{index}.wav")
-        index += 1
-    return candidate
+def _unique_wav(path: Path, index: int = 1) -> Path:
+    label = ".spoken" if index == 1 else f".spoken-{index}"
+    return path.with_name(f"{path.stem}{label}.wav")
 
 
 def narrate_file(path: Path, voice_id: str = "") -> dict[str, Any]:
@@ -165,7 +161,8 @@ def narrate_file(path: Path, voice_id: str = "") -> dict[str, Any]:
     except ImportError:
         raise SpeechError("missing_dependency", "Installed Piper TTS runtime could not be loaded.") from None
 
-    destination = _unique_wav(path)
+    output_index = 1
+    destination = _unique_wav(path, output_index)
     stage_name = None
     try:
         # A temp file in the same directory allows atomic completion of a full WAV.
@@ -185,7 +182,8 @@ def narrate_file(path: Path, voice_id: str = "") -> dict[str, Any]:
                 os.link(stage_name, destination)
                 break
             except FileExistsError:
-                destination = _unique_wav(destination)
+                output_index += 1
+                destination = _unique_wav(path, output_index)
         return {
             "output_path": str(destination),
             "voice_id": chosen["voice_id"],
