@@ -150,6 +150,7 @@ WorkerResult PythonWorkerClient::streamWorkflow(
   for (const auto& path : paths) inputArray.append(path);
   const QJsonObject request{
       {"command", "workflow.run_stream"},
+      {"flow_control", true},
       {"workflow", document},
       {"paths", inputArray},
   };
@@ -212,6 +213,22 @@ WorkerResult PythonWorkerClient::streamWorkflow(
           return;
         }
         if (onEvent) onEvent(event);
+        if (event.value("event").toString() == "workflow.action_completed") {
+          // The worker waits at a safe per-action boundary. The host must
+          // acknowledge before the next file action starts, eliminating
+          // cancellation races even for sub-millisecond processors.
+          const bool shouldCancel = cancelled ||
+              (stopRequested && stopRequested->load(std::memory_order_acquire));
+          const QByteArray control = shouldCancel
+              ? QByteArray("{\"command\":\"workflow.cancel\"}\n")
+              : QByteArray("{\"command\":\"workflow.continue\"}\n");
+          if (process.write(control) != control.size() ||
+              !process.waitForBytesWritten(3000)) {
+            invalidFrame = true;
+            return;
+          }
+          if (shouldCancel) cancelled = true;
+        }
       }
     }
   };
