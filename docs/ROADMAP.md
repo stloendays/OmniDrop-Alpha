@@ -36,6 +36,26 @@ Next:
 - true in-flight cancellation for processors that can safely support it;
 - bounded parallelism for processors that are safe to run concurrently.
 
+### Workflow Engine
+
+Implemented in Workflow v1:
+
+- local DAG execution with deterministic dependency ordering and multi-source joins;
+- portable, schema-versioned workflow manifests and shared Action ID reuse;
+- read-only validation/plan, bounded execution and installed-capability checks;
+- per-node result records with output tracking for partial failure recovery;
+- Qt recipe builder, workflow file save/load, preview, and background execution;
+- CLI workflow validate/plan/run and example manifests;
+- explicit denial of arbitrary shell programs and cloud API calls in workflow definitions.
+
+Next:
+
+- visual drag-and-connect graph authoring (initial GUI editing is linear);
+- streaming job progress, cooperative stop, retry and replay;
+- durable queue/history and verified crash recovery;
+- typed action parameters and variable propagation;
+- consent-aware cloud operations and agent/MCP gateway.
+
 ### Images
 
 Implemented:
