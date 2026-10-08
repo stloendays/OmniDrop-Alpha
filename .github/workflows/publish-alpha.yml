@@ -133,9 +133,12 @@ jobs:
               --notes-file "docs/releases/$RELEASE_TAG.md"
           fi
 
-          actual_tag_sha="$(git ls-remote origin "refs/tags/$RELEASE_TAG" | cut -f1)"
-          if [[ "$actual_tag_sha" != "$SOURCE_SHA" ]]; then
-            echo "::error::Release tag is not at the tested main commit."
+          # Draft releases need not create the remote git tag yet.
+          # Verify their proposed commit before publishing, not via ls-remote.
+          draft_target="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+                          --json targetCommitish --jq '.targetCommitish')"
+          if [[ "$draft_target" != "$SOURCE_SHA" ]]; then
+            echo "::error::Release draft targets a different commit."
             exit 1
           fi
           gh release upload "$RELEASE_TAG" "$archive" "$archive.sha256" \
@@ -148,5 +151,12 @@ jobs:
           fi
           gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
             --draft=false --prerelease
+
+          # GitHub creates the tag when a draft becomes a published release.
+          published_tag_sha="$(git ls-remote origin "refs/tags/$RELEASE_TAG" | cut -f1)"
+          if [[ "$published_tag_sha" != "$SOURCE_SHA" ]]; then
+            echo "::error::Published release tag is not at the validated main commit."
+            exit 1
+          fi
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
             --json url,tagName,isDraft,isPrerelease,assets
