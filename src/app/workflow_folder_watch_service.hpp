@@ -8,6 +8,10 @@
 #include <QString>
 #include <QStringList>
 
+#include <memory>
+
+class QLockFile;
+
 namespace omnidrop {
 
 // Per-session, explicitly armed, non-recursive folder scanner.
@@ -23,6 +27,7 @@ struct FolderWatchScan {
 
 class WorkflowFolderWatchService {
  public:
+  ~WorkflowFolderWatchService();
   bool arm(const QString& folder, const QJsonObject& workflow,
            QString* error = nullptr);
   FolderWatchScan scan(qint64 nowMs);
@@ -44,6 +49,7 @@ class WorkflowFolderWatchService {
   QJsonObject workflow_;
   QHash<QString, Fingerprint> pending_;
   QSet<QString> suppressed_;
+  std::unique_ptr<QLockFile> watchLock_;
 };
 
 }  // namespace omnidrop
