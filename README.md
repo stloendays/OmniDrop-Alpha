@@ -27,8 +27,10 @@ New optional workspaces:
   convert text/subtitles to WAV without uploading the source. The model pack is a separate
   artifact; an optional Piper runtime is required.
 - [Workflow Engine](docs/WORKFLOWS.md) - link existing local file actions into reusable,
-  versioned pipelines. Includes Qt recipe builder, CLI preflight/execution, DAG branching,
-  dependency-aware file passing, and non-destructive output tracking.
+  versioned pipelines. Includes Qt graph editor, CLI preflight/execution, DAG branching,
+  live progress, safe stop and non-destructive output tracking.
+- [Workflow Jobs](docs/WORKFLOW_JOBS.md) - save local job records, view progress, and retry
+  failed/interrupted workflows explicitly without removing previously created files.
 
 ## Status
 
