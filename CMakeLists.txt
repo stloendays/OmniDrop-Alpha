@@ -120,6 +120,12 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
       PASS_REGULAR_EXPRESSION "^${PROJECT_VERSION}"
     )
 
+    add_test(NAME omnidrop_cli_workflow_jobs COMMAND omnidrop_cli workflow jobs)
+    set_tests_properties(omnidrop_cli_workflow_jobs PROPERTIES
+      PASS_REGULAR_EXPRESSION "schema_version"
+      ENVIRONMENT "OMNIDROP_WORKFLOW_JOBS=${CMAKE_CURRENT_BINARY_DIR}/ci-jobs/jobs.json"
+    )
+
     add_test(NAME omnidrop_cli_workflow_validate
              COMMAND omnidrop_cli workflow validate
                      "${CMAKE_CURRENT_SOURCE_DIR}/workflows/examples/text-clean.omniworkflow.json")
