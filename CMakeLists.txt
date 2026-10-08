@@ -36,6 +36,7 @@ add_library(omnidrop_adapters
   src/app/translation_service.cpp
   src/app/workflow_service.cpp
   src/app/workflow_job_service.cpp
+  src/app/workflow_folder_watch_service.cpp
   src/adapters/recent_files_store.cpp
   src/adapters/action_history_store.cpp
 )
@@ -113,6 +114,11 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   add_executable(omnidrop_workflow_job_tests tests/workflow_job_service_tests.cpp)
   target_link_libraries(omnidrop_workflow_job_tests PRIVATE omnidrop_adapters Qt6::Core)
   add_test(NAME omnidrop_workflow_job_tests COMMAND omnidrop_workflow_job_tests)
+
+  add_executable(omnidrop_workflow_folder_watch_tests tests/workflow_folder_watch_tests.cpp)
+  target_link_libraries(omnidrop_workflow_folder_watch_tests PRIVATE omnidrop_adapters Qt6::Core)
+  add_test(NAME omnidrop_workflow_folder_watch_tests
+           COMMAND omnidrop_workflow_folder_watch_tests)
 
   if(TARGET omnidrop_cli)
     add_test(NAME omnidrop_cli_version COMMAND omnidrop_cli --version)
