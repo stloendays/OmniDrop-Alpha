@@ -31,6 +31,7 @@ int usage() {
       << "  omnidrop-cli workflow validate <workflow.json>\n"
       << "  omnidrop-cli workflow plan <workflow.json> <file> [...]\n"
       << "  omnidrop-cli workflow run <workflow.json> <file> [...]\n"
+      << "  omnidrop-cli workflow run-stream <workflow.json> <file> [...]\n"
       << "  omnidrop-cli worker-ping\n";
   return 1;
 }
@@ -152,7 +153,8 @@ int main(int argc, char* argv[]) {
 
   if (command == "workflow" && args.size() >= 4) {
     const auto operation = args.at(2);
-    if (operation != "validate" && operation != "plan" && operation != "run") {
+    if (operation != "validate" && operation != "plan" && operation != "run" &&
+        operation != "run-stream") {
       return usage();
     }
     if ((operation == "validate" && args.size() != 4) ||
@@ -168,6 +170,30 @@ int main(int argc, char* argv[]) {
     }
 
     const QStringList inputPaths = args.mid(4);
+    if (operation == "run-stream") {
+      const auto response = workflows.runStreaming(
+          loaded.document, inputPaths,
+          [&out](const QJsonObject& event) {
+            out << QJsonDocument(event).toJson(QJsonDocument::Compact) << '\n';
+            out.flush();
+          });
+      QJsonParseError jsonError;
+      const auto parsed = QJsonDocument::fromJson(response.output.toUtf8(), &jsonError);
+      const QJsonObject finish{
+          {"schema_version", 1},
+          {"event", "workflow.finished"},
+          {"result", parsed.isObject()
+              ? QJsonValue(parsed.object())
+              : QJsonValue(QJsonObject{
+                  {"ok", false},
+                  {"error", QJsonObject{
+                      {"code", "transport_error"}, {"message", response.error}}},
+                })},
+      };
+      out << QJsonDocument(finish).toJson(QJsonDocument::Compact) << '\n';
+      out.flush();
+      return response.ok ? 0 : 2;
+    }
     const auto response = operation == "validate"
         ? workflows.validate(loaded.document)
         : (operation == "plan"
