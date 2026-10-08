@@ -12,11 +12,16 @@ $root = (Resolve-Path $PackageDir).Path
 $gui = Join-Path $root "OmniDrop.exe"
 $cli = Join-Path $root "omnidrop-cli.exe"
 $worker = Join-Path $root "python\worker.py"
+$embedded = Join-Path $root "runtime\python\python.exe"
 
 $required = @(
   $gui,
   $cli,
   $worker,
+  $embedded,
+  (Join-Path $root "runtime\python\python313.dll"),
+  (Join-Path $root "runtime\python\python313.zip"),
+  (Join-Path $root "runtime\python\python313._pth"),
   (Join-Path $root "Qt6Core.dll"),
   (Join-Path $root "Qt6Gui.dll"),
   (Join-Path $root "Qt6Widgets.dll"),
@@ -38,12 +43,44 @@ if ($cliVersion -ne $ExpectedVersion) {
   throw "Packaged CLI version mismatch. Expected $ExpectedVersion, got $cliVersion"
 }
 
-$ping = (& $cli worker-ping | Out-String).Trim()
-if ($LASTEXITCODE -ne 0) {
-  throw "Packaged CLI could not start the local Python worker."
+# Check the isolated interpreter and its CPython-3.13 Pillow/pypdf wheels.
+$check = (& $embedded -B -I -c "import sys; from PIL import Image; from pypdf import PdfReader, PdfWriter; Image.new('RGB', (2, 2)); assert sys.version_info[:3] == (3, 13, 16); print(sys.executable)" | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or $check -ne $embedded) {
+  throw "Embedded CPython or vendored dependencies failed: $check"
 }
-if ($ping -notmatch '"ok"\s*:\s*true') {
-  throw "Packaged worker ping did not return a successful JSON response: $ping"
+
+# Remove the CI/setup-python PATH and inherited overrides. Portable releases
+# must still run a worker without any Python installed on the user machine.
+$oldPath = $env:PATH
+$oldPython = [Environment]::GetEnvironmentVariable("OMNIDROP_PYTHON", "Process")
+$oldPythonPath = [Environment]::GetEnvironmentVariable("PYTHONPATH", "Process")
+try {
+  Remove-Item Env:\OMNIDROP_PYTHON -ErrorAction SilentlyContinue
+  $env:PYTHONPATH = "C:\omnidrop-nonexistent-global-packages"
+  $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+
+  $ping = (& $cli worker-ping | Out-String).Trim()
+  if ($LASTEXITCODE -ne 0 -or $ping -notmatch '"ok"\s*:\s*true') {
+    throw "CLI could not start its packaged worker with system Python unavailable: $ping"
+  }
+  $capabilities = (& $cli capabilities | Out-String).Trim()
+  if ($LASTEXITCODE -ne 0 -or $capabilities -notmatch "image.compress" -or
+      $capabilities -notmatch "pdf.extract_text") {
+    throw "Packaged Pillow/pypdf capabilities unavailable: $capabilities"
+  }
+}
+finally {
+  $env:PATH = $oldPath
+  if ($null -eq $oldPython) {
+    Remove-Item Env:\OMNIDROP_PYTHON -ErrorAction SilentlyContinue
+  } else {
+    $env:OMNIDROP_PYTHON = $oldPython
+  }
+  if ($null -eq $oldPythonPath) {
+    Remove-Item Env:\PYTHONPATH -ErrorAction SilentlyContinue
+  } else {
+    $env:PYTHONPATH = $oldPythonPath
+  }
 }
 
 # Verify a complete installed-package local workflow, not just worker ping.

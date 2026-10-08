@@ -12,6 +12,7 @@ on:
 permissions:
   contents: write
   actions: read
+  attestations: read
 
 concurrency:
   group: omnidrop-alpha-publication
@@ -95,6 +96,8 @@ jobs:
         shell: bash
         env:
           RELEASE_VERSION: ${{ steps.preflight.outputs.version }}
+          SOURCE_SHA: ${{ steps.preflight.outputs.commit }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           archive="OmniDrop-${RELEASE_VERSION}-windows-dev.zip"
@@ -102,9 +105,18 @@ jobs:
           test -s "$archive"
           test -s "$archive.sha256"
           sha256sum -c "$archive.sha256"
+          # Only publish the attested package produced by the exact trusted workflow,
+          # SHA, and main-branch ref. A checksum alone does not prove build identity.
+          gh attestation verify "$archive" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/build.yml" \
+            --source-ref "refs/heads/main" \
+            --source-digest "$SOURCE_SHA"
           # Avoid SIGPIPE from grep -q under pipefail by capturing the list once.
           unzip -Z1 "$archive" > archive-files.txt
           for required in OmniDrop.exe omnidrop-cli.exe python/worker.py \
+                          runtime/python/python.exe runtime/python/python313.dll \
+                          runtime/python/python313.zip runtime/python/python313._pth \
                           workflows/examples/text-clean.omniworkflow.json \
                           Qt6Core.dll platforms/qwindows.dll; do
             if ! grep -Fxq "$required" archive-files.txt; then

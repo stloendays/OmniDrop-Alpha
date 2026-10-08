@@ -14,19 +14,19 @@ The package also contains:
 - `OmniDrop.exe`;
 - `omnidrop-cli.exe`;
 - the local Python worker;
-- Python worker dependencies under `python/vendor`;
+- Python worker dependencies under `python/vendor` (Python 3.13 Windows wheels);
+- verified official CPython 3.13.16 under `runtime/python`;
 - repository license/readme/assets installed by CMake.
 
-## Current Python requirement
+## Python in newly built packages
 
-The alpha package does **not** yet embed a Python runtime. It still requires a compatible Python
-installation that can be resolved as `python`, or an explicit `OMNIDROP_PYTHON` override.
+This Windows packaging pipeline includes an official embedded CPython 3.13
+interpreter, verified against a pinned SHA-256, and Pillow/pypdf dependencies
+installed for the same Python 3.13 ABI. Newly built packages no longer require
+system Python. An explicit `OMNIDROP_PYTHON` override remains available.
 
-Bundling worker dependencies is still useful: users do not need to separately install Pillow or
-pypdf into their global Python environment.
-
-A future release package should embed or otherwise own its Python runtime before OmniDrop is
-described as fully self-contained.
+**Already published v0.2.0 ZIPs are unchanged** and still require Python
+installed on the target system. See [Python runtime](PYTHON_RUNTIME.md).
 
 ## CI smoke test
 
@@ -34,10 +34,14 @@ Before the ZIP is uploaded, CI checks the staged package itself rather than only
 
 1. required Qt runtime DLLs and `platforms/qwindows.dll` exist;
 2. the packaged CLI starts and reports the expected version;
-3. the packaged CLI can start and ping the local Python worker;
+3. the isolated interpreter imports Pillow/pypdf and CLI worker ping succeeds with Python removed from PATH;
 4. the packaged GUI remains running after startup;
 5. a second packaged GUI launch forwards to the primary instance and exits within a bounded time;
 6. the primary instance remains alive after that activation;
 7. the primary window is then closed cleanly (with forced cleanup only as a CI fallback).
 
-The final ZIP is accompanied by a SHA-256 checksum file.
+The final ZIP is accompanied by a SHA-256 checksum. Main-branch CI also
+creates a signed, verifiable GitHub artifact provenance attestation, and
+the release publisher requires this attestation to match its exact main commit.
+Optional Windows Authenticode signing requires a trusted certificate and
+explicit credentials. See [Signing](CODE_SIGNING.md).

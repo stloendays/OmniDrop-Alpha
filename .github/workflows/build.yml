@@ -1,5 +1,10 @@
 name: build
 
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
 on:
   push:
     branches: [main]
@@ -13,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -32,39 +37,20 @@ jobs:
         run: python -m pip install -r python/requirements.txt
       - name: Python worker tests
         run: python -m unittest discover -s tests -p "test_*.py"
-      - name: Stage and smoke-test Windows development package
+      - name: Stage, sign when configured, and smoke-test Windows package
         shell: pwsh
+        env:
+          # PRs never receive code-signing secrets, including same-repo PRs.
+          OMNIDROP_CODESIGN_PFX_BASE64: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.OMNIDROP_CODESIGN_PFX_BASE64 || '' }}
+          OMNIDROP_CODESIGN_PASSWORD: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.OMNIDROP_CODESIGN_PASSWORD || '' }}
         run: |
-          cmake --install build --config Release --prefix package
+          ./scripts/package_windows.ps1 -BuildDir build -PackageDir package
 
-          $packageDir = (Resolve-Path package).Path
-          $guiPath = Join-Path $packageDir "OmniDrop.exe"
-          $windeployqt = (Get-Command windeployqt.exe -ErrorAction Stop).Source
-          & $windeployqt --release --no-translations $guiPath
-          if ($LASTEXITCODE -ne 0) {
-            throw "windeployqt failed with exit code $LASTEXITCODE"
-          }
-
-          python -m pip install --target package/python/vendor -r python/requirements.txt
-          if ($LASTEXITCODE -ne 0) {
-            throw "Failed to stage Python worker dependencies."
-          }
-
-          $version = (& package/omnidrop-cli.exe --version | Out-String).Trim()
-          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($version)) {
-            throw "Cannot determine packaged OmniDrop version."
-          }
-
-          & ./tests/smoke_windows_package.ps1 -PackageDir package -ExpectedVersion $version
-          if ($LASTEXITCODE -ne 0) {
-            throw "Packaged Windows smoke test failed."
-          }
-
-          $archive = "OmniDrop-$version-windows-dev.zip"
-          Compress-Archive -Path package/* -DestinationPath $archive -Force
-
-          $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $archive" | Set-Content "$archive.sha256" -Encoding ascii
+      - name: Attest final Windows ZIP with Sigstore-backed GitHub provenance
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest@v4
+        with:
+          subject-path: OmniDrop-*-windows-dev.zip
 
       - name: Upload Windows development package
         uses: actions/upload-artifact@v4
