@@ -4,13 +4,12 @@
 
 #include <QHash>
 #include <QJsonObject>
+#include <QLockFile>
 #include <QSet>
 #include <QString>
 #include <QStringList>
 
 #include <memory>
-
-class QLockFile;
 
 namespace omnidrop {
 
