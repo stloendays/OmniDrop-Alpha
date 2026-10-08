@@ -64,8 +64,9 @@ structured JSON report with partial outputs for recovery.
 - Preview is read-only and checks processor availability and type compatibility.
 - Bounds: 64 KiB manifest, 24 nodes, 16 sources per node, 128 input files,
   and 1024 individual actions per execution.
-- Execution is sequential. The first GUI does not yet expose mid-step
-  cancellation or streaming progress.
+- Execution remains sequential. The Workflow Builder now streams per-operation
+  progress and offers **Stop after current file**. It never forcibly aborts a
+  PDF write or voice-model inference in progress.
 - Failed runs do not auto-delete intermediate outputs or claim rollback.
 - The Qt application-service layer atomically writes saved manifests.
 
@@ -84,10 +85,29 @@ Every step uses the same existing worker run/run_batch implementation.
 No network listener is introduced. The first implementation contains no
 background schedule, durable queue or automatic file watching.
 
+## Streaming progress (opt-in)
+
+The original `workflow.run` worker command and CLI continue to return a
+single JSON object for compatibility. An additional
+`workflow.run_stream` command accepts one JSON line on stdin and produces
+newline-delimited JSON progress frames on stdout followed by one
+`workflow.finished` frame containing the complete execution result.
+
+GUI and CLI connect through the same C++ WorkflowService and
+PythonWorkerClient. During streaming, a second stdin message
+`{"command":"workflow.cancel"}` asks the worker to stop **after the active
+file operation completes**. No intermediate output is automatically deleted.
+
+`omnidrop-cli workflow run-stream <workflow.json> <file> [...]`
+emits structured events and then a terminal result. Event fields include
+schema_version, event, run_id, node_id, completed_operations,
+total_operations, and status. File paths are not included in progress
+frames. Final results still list created output paths.
+
 ## Next iterations
 
 - Visual node/edge editor supporting joins and branching
-- Job IDs, progress events, retry, and safe cooperative cancellation
+- Durable job IDs, failed-action retry, and crash/restart recovery
 - Durable queue, restart recovery, triggers and monitoring
 - Typed action parameters, variables and versioned migration
 - Consent-aware online translation nodes

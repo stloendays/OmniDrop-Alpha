@@ -60,4 +60,12 @@ WorkerResult WorkflowService::run(const QJsonObject& document,
   return worker_.workflowCommand("workflow.run", document, paths);
 }
 
+WorkerResult WorkflowService::runStreaming(
+    const QJsonObject& document,
+    const QStringList& paths,
+    const PythonWorkerClient::WorkflowEventCallback& onEvent,
+    const std::atomic_bool* stopRequested) const {
+  return worker_.streamWorkflow(document, paths, onEvent, stopRequested);
+}
+
 }  // namespace omnidrop

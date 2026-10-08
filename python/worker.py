@@ -649,11 +649,80 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
     return fail(f"Unsupported command: {command}", "unsupported_command")
 
 
-def main() -> int:
+def _run_stream(request: dict[str, Any]) -> int:
+    """One newline-delimited request, NDJSON events, one final result frame.
+
+    The control reader consumes optional {"command":"workflow.cancel"} frames
+    on stdin. A stop is honored *between* actions to protect output integrity.
+    """
+    import queue
+    import threading
+
+    cancel = threading.Event()
+    checkpoint = queue.Queue(maxsize=1)
+    flow_control = request.get("flow_control") is True
+
+    def controls() -> None:
+        for line in sys.stdin:
+            try:
+                message = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(message, dict):
+                continue
+            if message.get("command") == "workflow.cancel":
+                cancel.set()
+                return
+            if message.get("command") == "workflow.continue" and flow_control:
+                try:
+                    checkpoint.put_nowait(True)
+                except queue.Full:
+                    pass
+
+    threading.Thread(target=controls, daemon=True).start()
+
+    def emit(payload: dict[str, Any]) -> None:
+        sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        sys.stdout.flush()
+        if flow_control and payload.get("event") == "workflow.action_completed":
+            # Every completed action is a synchronization point. The host
+            # chooses continue/cancel before the next file operation begins.
+            # A lost host cannot leave a model worker blocking indefinitely.
+            if not cancel.is_set():
+                try:
+                    checkpoint.get(timeout=15)
+                except queue.Empty:
+                    cancel.set()
+
     try:
-        request = json.loads(sys.stdin.read())
+        result = workflow_run(
+            request.get("workflow"),
+            request.get("paths"),
+            capabilities(),
+            handle,
+            on_event=emit,
+            should_stop=cancel.is_set,
+        )
+    except WorkflowError as exc:
+        result = fail(str(exc), exc.code)
+    except Exception:
+        result = fail("Local workflow streaming execution failed.", "workflow_error")
+
+    emit({"event": "workflow.finished", "schema_version": 1, "result": result})
+    return 0 if result.get("ok") else 2
+
+
+def main() -> int:
+    # readline accepts the old single JSON request without newline because
+    # legacy callers close stdin. Streaming clients keep stdin open for cancel.
+    initial = sys.stdin.readline()
+    try:
+        request = json.loads(initial)
         if not isinstance(request, dict):
             raise ValueError("Request must be a JSON object")
+        if request.get("command") == "workflow.run_stream":
+            return _run_stream(request)
+        # Existing single-request protocol remains unchanged.
         response = handle(request)
     except Exception as exc:  # Boundary: convert worker failures to structured output.
         response = fail(str(exc))

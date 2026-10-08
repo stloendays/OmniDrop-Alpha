@@ -7,6 +7,9 @@
 #include <QString>
 #include <QStringList>
 
+#include <atomic>
+#include <functional>
+
 namespace omnidrop {
 
 struct WorkerResult {
@@ -27,6 +30,11 @@ class PythonWorkerClient {
   WorkerResult workflowCommand(const QString& command,
                                const QJsonObject& document,
                                const QStringList& paths) const;
+  using WorkflowEventCallback = std::function<void(const QJsonObject&)>;
+  WorkerResult streamWorkflow(const QJsonObject& document,
+                              const QStringList& paths,
+                              const WorkflowEventCallback& onEvent,
+                              const std::atomic_bool* stopRequested = nullptr) const;
 
  private:
   WorkerResult invoke(const QByteArray& request, int timeoutMs = 120000) const;
