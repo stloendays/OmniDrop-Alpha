@@ -32,6 +32,7 @@ target_compile_definitions(omnidrop_core PUBLIC OMNIDROP_VERSION="${PROJECT_VERS
 
 add_library(omnidrop_adapters
   src/adapters/diagnostics_service.cpp
+  src/adapters/python_runtime.cpp
   src/adapters/python_worker_client.cpp
   src/app/translation_service.cpp
   src/app/workflow_service.cpp
@@ -102,6 +103,10 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   add_executable(omnidrop_diagnostics_tests tests/diagnostics_tests.cpp)
   target_link_libraries(omnidrop_diagnostics_tests PRIVATE omnidrop_core Qt6::Core)
   add_test(NAME omnidrop_diagnostics_tests COMMAND omnidrop_diagnostics_tests)
+
+  add_executable(omnidrop_python_runtime_tests tests/python_runtime_tests.cpp)
+  target_link_libraries(omnidrop_python_runtime_tests PRIVATE omnidrop_adapters Qt6::Core)
+  add_test(NAME omnidrop_python_runtime_tests COMMAND omnidrop_python_runtime_tests)
 
   add_executable(omnidrop_translation_service_tests tests/translation_service_tests.cpp)
   target_link_libraries(omnidrop_translation_service_tests PRIVATE omnidrop_adapters Qt6::Core)
@@ -182,8 +187,8 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   endif()
 endif()
 
-# Install layout for development/portable packaging. A self-contained Python runtime is a later
-# distribution concern; the worker and its dependency manifest are installed beside the binaries.
+# Worker sources are installed for developer builds; Windows package staging separately
+# adds an isolated checksum-pinned CPython runtime and its matching dependencies.
 if(TARGET omnidrop)
   install(TARGETS omnidrop RUNTIME DESTINATION .)
 endif()

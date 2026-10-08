@@ -31,6 +31,13 @@
 > [!IMPORTANT]
 > **Early Alpha · v0.2.0.** The current downloadable package is an **unsigned Windows x64 portable ZIP**, not a production-ready installer. It contains Qt and bundled worker libraries but **requires an installed Python 3.10+ interpreter**. See [release notes](docs/releases/v0.2.0.md) before testing.
 
+**Next-package improvement:** once this feature branch passes CI and is
+integrated into a new release, Windows ZIPs will contain an isolated Python
+3.13 runtime and carry verifiable GitHub build provenance. The published
+v0.2.0 download above is **not** retroactively changed; Windows Authenticode
+still requires a publisher certificate. See [embedded Python](docs/PYTHON_RUNTIME.md)
+and [signing](docs/CODE_SIGNING.md).
+
 ## Why OmniDrop?
 
 Most file tasks should not require opening five different tools, uploading a document, or writing a throwaway script.

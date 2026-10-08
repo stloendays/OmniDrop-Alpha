@@ -1,4 +1,5 @@
 #include "adapters/python_worker_client.hpp"
+#include "adapters/python_runtime.hpp"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -18,14 +19,8 @@ PythonWorkerClient::PythonWorkerClient(QString workerScript)
     : workerScript_(std::move(workerScript)) {}
 
 QString PythonWorkerClient::resolvePython() const {
-  const auto env = QProcessEnvironment::systemEnvironment();
-  const auto configured = env.value("OMNIDROP_PYTHON");
-  if (!configured.isEmpty()) return configured;
-#ifdef Q_OS_WIN
-  return QStringLiteral("python");
-#else
-  return QStringLiteral("python3");
-#endif
+  return resolvePythonExecutable(QCoreApplication::applicationDirPath(),
+                                 QProcessEnvironment::systemEnvironment());
 }
 
 QString PythonWorkerClient::resolveWorkerScript() const {
@@ -51,7 +46,7 @@ QString PythonWorkerClient::resolveWorkerScript() const {
 WorkerResult PythonWorkerClient::invoke(const QByteArray& request, int timeoutMs) const {
   QProcess process;
   process.setProgram(resolvePython());
-  process.setArguments({resolveWorkerScript()});
+  process.setArguments({QStringLiteral("-B"), resolveWorkerScript()});
   process.start();
   if (!process.waitForStarted(3000)) {
     return {false, {}, "Unable to start Python worker. Configure OMNIDROP_PYTHON if needed."};
@@ -157,7 +152,7 @@ WorkerResult PythonWorkerClient::streamWorkflow(
 
   QProcess process;
   process.setProgram(resolvePython());
-  process.setArguments({resolveWorkerScript()});
+  process.setArguments({QStringLiteral("-B"), resolveWorkerScript()});
   process.start();
   if (!process.waitForStarted(3000)) {
     return {false, {}, "Unable to start local Python workflow worker."};

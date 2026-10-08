@@ -1,5 +1,10 @@
 name: build
 
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
 on:
   push:
     branches: [main]
@@ -10,10 +15,6 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -22,6 +23,12 @@ jobs:
           target: desktop
           arch: win64_msvc2022_64
           cache: true
+      # Qt's installer uses its own setup-python, which otherwise silently
+      # shadows the cp313 wheel builder with an incompatible Python version.
+      - name: Set up Python 3.13 after Qt bootstrap
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build
@@ -32,39 +39,31 @@ jobs:
         run: python -m pip install -r python/requirements.txt
       - name: Python worker tests
         run: python -m unittest discover -s tests -p "test_*.py"
-      - name: Stage and smoke-test Windows development package
+      - name: Stage Windows runtime without signing secrets
         shell: pwsh
         run: |
-          cmake --install build --config Release --prefix package
+          ./scripts/package_windows.ps1 -BuildDir build -PackageDir package -StageOnly
 
-          $packageDir = (Resolve-Path package).Path
-          $guiPath = Join-Path $packageDir "OmniDrop.exe"
-          $windeployqt = (Get-Command windeployqt.exe -ErrorAction Stop).Source
-          & $windeployqt --release --no-translations $guiPath
-          if ($LASTEXITCODE -ne 0) {
-            throw "windeployqt failed with exit code $LASTEXITCODE"
-          }
+      - name: Authenticode sign OmniDrop binaries (certificate optional)
+        shell: pwsh
+        env:
+          # Only this step receives PFX credentials. Never expose them to pip,
+          # windeployqt, a downloaded runtime or smoke-test GUI processes.
+          OMNIDROP_CODESIGN_PFX_BASE64: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.OMNIDROP_CODESIGN_PFX_BASE64 || '' }}
+          OMNIDROP_CODESIGN_PASSWORD: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.OMNIDROP_CODESIGN_PASSWORD || '' }}
+        run: |
+          ./scripts/sign_windows.ps1 -PackageDir package
 
-          python -m pip install --target package/python/vendor -r python/requirements.txt
-          if ($LASTEXITCODE -ne 0) {
-            throw "Failed to stage Python worker dependencies."
-          }
+      - name: Smoke-test and finalize Windows ZIP without secrets
+        shell: pwsh
+        run: |
+          ./scripts/package_windows.ps1 -PackageDir package -FinalizeOnly
 
-          $version = (& package/omnidrop-cli.exe --version | Out-String).Trim()
-          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($version)) {
-            throw "Cannot determine packaged OmniDrop version."
-          }
-
-          & ./tests/smoke_windows_package.ps1 -PackageDir package -ExpectedVersion $version
-          if ($LASTEXITCODE -ne 0) {
-            throw "Packaged Windows smoke test failed."
-          }
-
-          $archive = "OmniDrop-$version-windows-dev.zip"
-          Compress-Archive -Path package/* -DestinationPath $archive -Force
-
-          $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $archive" | Set-Content "$archive.sha256" -Encoding ascii
+      - name: Attest final Windows ZIP with Sigstore-backed GitHub provenance
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest@v4
+        with:
+          subject-path: OmniDrop-*-windows-dev.zip
 
       - name: Upload Windows development package
         uses: actions/upload-artifact@v4
