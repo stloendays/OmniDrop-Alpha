@@ -17,6 +17,8 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <QPointer>
+#include <QProgressBar>
 #include <QPushButton>
 #include <QSet>
 #include <QSplitter>
@@ -146,13 +148,22 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
   statusLabel_->setObjectName("muted");
   root->addWidget(statusLabel_);
 
+  runProgress_ = new QProgressBar(this);
+  runProgress_->setTextVisible(true);
+  runProgress_->hide();
+  root->addWidget(runProgress_);
+
   auto* footer = new QHBoxLayout;
   auto* cancel = new QPushButton("Close", this);
   planButton_ = new QPushButton("Preview plan", this);
+  stopButton_ = new QPushButton("Stop after current file", this);
+  stopButton_->setEnabled(false);
+  stopButton_->hide();
   runButton_ = new QPushButton("Run workflow", this);
   footer->addStretch();
   footer->addWidget(cancel);
   footer->addWidget(planButton_);
+  footer->addWidget(stopButton_);
   footer->addWidget(runButton_);
   root->addLayout(footer);
 
@@ -192,6 +203,12 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
           this, &WorkflowDialog::refreshButtons);
   connect(planButton_, &QPushButton::clicked, this, [this] { begin(false); });
   connect(runButton_, &QPushButton::clicked, this, [this] { begin(true); });
+  connect(stopButton_, &QPushButton::clicked, this, [this] {
+    if (!busy_ || !stopRequested_) return;
+    stopRequested_->store(true, std::memory_order_release);
+    stopButton_->setEnabled(false);
+    showStatus("Stopping after the current file action finishes...");
+  });
   connect(cancel, &QPushButton::clicked, this, &WorkflowDialog::reject);
 
   refreshInputs();
@@ -366,12 +383,20 @@ void WorkflowDialog::refreshButtons() {
   newButton_->setEnabled(!busy_);
   planButton_->setEnabled(!busy_ && (readOnlyGraph_ || stepsList_->count() > 0) && !inputs_.isEmpty());
   runButton_->setEnabled(planButton_->isEnabled());
+  if (stopButton_) stopButton_->setEnabled(busy_ && stopRequested_ &&
+                                          !stopRequested_->load(std::memory_order_acquire));
 }
 
 void WorkflowDialog::begin(bool execute) {
   if (busy_ || inputs_.isEmpty()) return;
   const auto workflow = definition();
   busy_ = true;
+  stopRequested_ = execute ? std::make_shared<std::atomic_bool>(false) : nullptr;
+  runProgress_->setRange(0, 0);
+  runProgress_->setValue(0);
+  runProgress_->setFormat("Preparing workflow...");
+  runProgress_->setVisible(execute);
+  stopButton_->setVisible(execute);
   refreshButtons();
   showStatus(execute ? "Running local workflow..." : "Preparing read-only execution plan...");
   outputView_->clear();
@@ -383,14 +408,50 @@ void WorkflowDialog::begin(bool execute) {
     finish(execute, result);
   });
   const auto paths = inputs_;
-  watcher->setFuture(QtConcurrent::run([workflow, paths, execute] {
+  const auto cancellation = stopRequested_;
+  QPointer<WorkflowDialog> guard(this);
+  watcher->setFuture(QtConcurrent::run([workflow, paths, execute, cancellation, guard] {
     WorkflowService service;
-    return execute ? service.run(workflow, paths) : service.plan(workflow, paths);
+    if (!execute) return service.plan(workflow, paths);
+    return service.runStreaming(
+        workflow, paths,
+        [guard](const QJsonObject& event) {
+          if (!guard) return;
+          QMetaObject::invokeMethod(
+              guard.data(),
+              [guard, event] {
+                if (!guard || !guard->busy_) return;
+                const auto type = event.value("event").toString();
+                const int completed = event.value("completed_operations").toInt(0);
+                const int total = event.value("total_operations").toInt(0);
+                if (total > 0) {
+                  guard->runProgress_->setRange(0, total);
+                  guard->runProgress_->setValue(completed);
+                  guard->runProgress_->setFormat(QString("%1 / %2").arg(completed).arg(total));
+                }
+                if (type == "workflow.node_started" ||
+                    type == "workflow.action_started" ||
+                    type == "workflow.action_completed") {
+                  guard->showStatus(
+                      QString("%1 — %2 / %3 file actions completed")
+                          .arg(event.value("node_id").toString())
+                          .arg(completed)
+                          .arg(total));
+                } else if (type == "workflow.stopped") {
+                  guard->showStatus("Stopped safely. Completed output files are retained.");
+                }
+              },
+              Qt::QueuedConnection);
+        },
+        cancellation.get());
   }));
 }
 
 void WorkflowDialog::finish(bool executed, const WorkerResult& result) {
   busy_ = false;
+  stopRequested_.reset();
+  stopButton_->hide();
+  if (!executed) runProgress_->hide();
   refreshButtons();
 
   if (result.output.isEmpty()) {
@@ -410,6 +471,8 @@ void WorkflowDialog::finish(bool executed, const WorkerResult& result) {
                        .arg(data.value("steps").toArray().size())
                        .arg(data.value("operation_count").toInt()));
       }
+    } else if (data.value("status").toString() == "stopped") {
+      showStatus("Stopped safely after the current action. Intermediate outputs are retained.");
     } else {
       showStatus("Workflow failed: " + result.error +
                      " (see completed steps and created outputs below)", true);
