@@ -186,7 +186,15 @@ class WorkerTests(unittest.TestCase):
             with Image.open(result["output_path"]) as resized:
                 self.assertEqual(resized.size, (4, 3))
                 self.assertEqual(resized.mode, "RGBA")
-                self.assertEqual(resized.getpixel((1, 1)), (10, 20, 30, 40))
+                pixel = resized.getpixel((1, 1))
+                # Pillow uses premultiplied alpha; integer rounding may shift RGB
+                # by a few levels even for uniform semi-transparent pixels.
+                self.assertEqual(pixel[3], 40)
+                self.assertTrue(
+                    all(abs(actual - expected) <= 3
+                        for actual, expected in zip(pixel[:3], (10, 20, 30))),
+                    pixel,
+                )
 
             second = worker.handle(request)
             self.assertTrue(second["ok"], second)
