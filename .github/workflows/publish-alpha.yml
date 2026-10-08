@@ -102,10 +102,12 @@ jobs:
           test -s "$archive"
           test -s "$archive.sha256"
           sha256sum -c "$archive.sha256"
+          # Avoid SIGPIPE from grep -q under pipefail by capturing the list once.
+          unzip -Z1 "$archive" > archive-files.txt
           for required in OmniDrop.exe omnidrop-cli.exe python/worker.py \
                           workflows/examples/text-clean.omniworkflow.json \
                           Qt6Core.dll platforms/qwindows.dll; do
-            if ! unzip -Z1 "$archive" | grep -Fxq "$required"; then
+            if ! grep -Fxq "$required" archive-files.txt; then
               echo "::error::Missing packaged file $required"
               exit 1
             fi
