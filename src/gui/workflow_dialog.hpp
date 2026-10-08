@@ -45,6 +45,7 @@ class WorkflowDialog final : public QDialog {
   void refreshGraphSteps();
   void queueWorkflow();
   void refreshJobs();
+  void showSelectedJobEvents();
   void executeSelectedJob();
   void removeSelectedJob();
   void toggleFolderWatch();
@@ -83,6 +84,7 @@ class WorkflowDialog final : public QDialog {
   QPlainTextEdit* outputView_{nullptr};
   WorkflowGraphView* graphView_{nullptr};
   QListWidget* jobsList_{nullptr};
+  QPlainTextEdit* jobEventsView_{nullptr};
   QTabWidget* rightTabs_{nullptr};
   QPushButton* graphEditButton_{nullptr};
   QPushButton* queueButton_{nullptr};
