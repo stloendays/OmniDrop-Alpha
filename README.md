@@ -1,204 +1,194 @@
 # OmniDrop
 
-**One local app for files.**
+<p align="center">
+  <strong>Drop a file. Find the right action. Make the workflow your own.</strong>
+</p>
 
-OmniDrop is an open-source, local-first Windows utility for inspecting, converting,
-compressing, extracting, cleaning, and transforming files from one drag-and-drop surface.
+<p align="center">
+  A local-first desktop workspace for everyday file tools and visual automation.<br>
+  Built with C++20, Qt 6 and a Python worker. No account required for core tasks.
+</p>
 
-The product principle is simple:
+<p align="center">
+  <a href="https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.2.0"><strong>Download Windows Alpha</strong></a>
+  · <a href="#quick-start">Quick start</a>
+  · <a href="#what-can-it-do">Features</a>
+  · <a href="#workflows">Workflows</a>
+  · <a href="docs/README.zh-CN.md">简体中文</a>
+</p>
 
-> Drop a file. See only the actions that make sense for that file.
+<p align="center">
+  <a href="https://github.com/stloendays/OmniDrop-Alpha/actions/workflows/build.yml">Build &amp; tests</a>
+  · <a href="https://github.com/stloendays/OmniDrop-Alpha/releases">Releases</a>
+  · <a href="LICENSE">MIT License</a>
+  · <a href="CONTRIBUTING.md">Contributing</a>
+</p>
 
-No account is required. Core file operations are designed to run locally. Network or AI
-features, when added, must be explicit opt-in actions rather than hidden behavior.
+<!-- VISUAL SLOT 01 / HERO: assets/readme/hero.webp
+     Reserved for a real, verified OmniDrop screenshot or approved illustration.
+     No placeholder artwork or broken image link is published yet. -->
 
-## Why OmniDrop is different
+> [!IMPORTANT]
+> **Early Alpha · v0.2.0.** The current downloadable package is an **unsigned Windows x64 portable ZIP**, not a production-ready installer. It contains Qt and bundled worker libraries but **requires an installed Python 3.10+ interpreter**. See [release notes](docs/releases/v0.2.0.md) before testing.
 
-OmniDrop is not trying to duplicate a complete office suite. Its focus is
-**drop -> context-aware actions -> optional private/local processors -> reproducible output**.
-C++/Qt, CLI and automation share the same action IDs; users can keep their original files
-and choose when to use third-party providers.
+## Why OmniDrop?
 
-New optional workspaces:
+Most file tasks should not require opening five different tools, uploading a document, or writing a throwaway script.
 
-- [Translation](docs/TRANSLATION.md) - local Argos or explicitly approved MyMemory,
-  LibreTranslate and DeepL API Free providers for text/Markdown/subtitles.
-- [Offline voice packs](docs/VOICE_PACKS.md) - attach a verified small ONNX speech model and
-  convert text/subtitles to WAV without uploading the source. The model pack is a separate
-  artifact; an optional Piper runtime is required.
-- [Workflow Engine](docs/WORKFLOWS.md) - link existing local file actions into reusable,
-  versioned pipelines. Includes Qt graph editor, CLI preflight/execution, DAG branching,
-  live progress, safe stop and non-destructive output tracking.
-- [Workflow Jobs](docs/WORKFLOW_JOBS.md) - save local job records, view progress, and retry
-  failed/interrupted workflows explicitly without removing previously created files.
-- [Workflow Folder Watch](docs/WORKFLOW_WATCH.md) - opt in to watching one directory,
-  safely process stable new files as durable Jobs, and exclude generated outputs.
+OmniDrop brings **context-aware file actions**, **non-destructive outputs**, and **reusable workflows** into one focused workspace. Drop a file and see actions relevant to its format *and* to the processors actually available on your computer. Use one action, process a batch, or connect them into a visual workflow.
 
-## Windows Alpha download
+**One drop → relevant tools → new outputs → optional automation.**
 
-The latest reviewed Alpha preview is published on
-[GitHub Releases](https://github.com/stloendays/OmniDrop-Alpha/releases).
-This release uses a tested **Windows x64 ZIP**, not a signed installer.
-It includes the Qt DLLs and Python worker libraries but still needs an
-installed **Python 3.10+** executable on PATH (or `OMNIDROP_PYTHON`).
+Unlike a general-purpose office suite, OmniDrop concentrates on the file operations *around* your documents. The goal is a fast, understandable utility—not a claim that Office editing, OCR or every media format is already supported.
 
-Download the ZIP and its `.sha256`, verify its hash, then unzip into a
-dedicated folder outside any Git checkout. Use `OmniDrop.exe` for the
-desktop UI or `omnidrop-cli.exe` for automation. No hidden update is
-performed on startup. See the matching release notes for limits and
-optional offline model dependencies.
+## What can it do?
 
-## Status
+| Area | Available today |
+| --- | --- |
+| **Text & developer files** | Normalize whitespace/line endings, remove duplicate lines, format JSON/XML, calculate SHA-256 |
+| **Images** | Compress, convert to WebP, remove metadata, rotate 90° and resize to 50% |
+| **PDFs** | Extract text, split pages, merge PDFs in selected order and rotate pages |
+| **ZIP archives** | Inspect archive contents and safely extract files |
+| **Batch operations** | Process multiple selected files with per-file progress and cooperative stop |
+| **Workflow Builder** | Create, edit, preview, save and run DAGs with branches and joins |
+| **Workflow Jobs** | Save a local queue, inspect status and explicitly retry stopped/failed/interrupted jobs |
+| **Folder Watch** | Opt in to one folder, process stable new files and exclude generated outputs |
+| **Translation (optional)** | Offline Argos or explicitly consented MyMemory / LibreTranslate / DeepL API Free |
+| **Speech (optional)** | Convert text/subtitles to WAV after installing a verified Piper voice pack and inference runtime |
 
-OmniDrop is in early alpha (`0.2.0`). The current vertical slice includes:
+**Reality-based availability:** OmniDrop distinguishes *planned*, *implemented but unavailable*, and *available here* actions. Optional processors, language packs and voice models are not installed silently.
 
-- Qt 6 / C++20 desktop shell with drag-and-drop and an Open File path.
-- File-kind detection and context-aware action recommendations.
-- Searchable action list (`Ctrl+F`).
-- Persistent Recent Files and Activity history using local Qt settings.
-- Runtime worker capability probing: missing processors show as unavailable instead of pretending to work.
-- One shared application-service layer used by GUI and CLI.
-- Stable string action IDs such as `file.sha256` and `pdf.extract_text`.
-- A stateless JSON protocol for Python workers.
-- Async execution so worker operations do not block the Qt UI thread.
-- Windows and Linux-core CI definitions.
+[Full Action IDs and status](docs/ACTIONS.md) · [Translation and privacy](docs/TRANSLATION.md) · [Offline voice packs](docs/VOICE_PACKS.md)
 
-### Working actions
+<!-- VISUAL SLOT 02 / FILE ACTIONS: assets/readme/workspace.webp
+     Real product capture to be added later. -->
 
-| File kind | Action | Action ID | Backend |
-| --- | --- | --- | --- |
-| Any file | SHA-256 | `file.sha256` | Python stdlib |
-| Text / code | Normalize text | `text.normalize` | Python stdlib |
-| Text / code | Remove duplicate lines | `text.deduplicate` | Python stdlib |
-| Text / subtitles | Generate speech WAV (optional) | `text.to_speech` | Verified Piper voice pack |
-| Image | Compress image | `image.compress` | Pillow |
-| Image | Convert to WebP | `image.convert_webp` | Pillow |
-| Image | Remove metadata | `image.remove_metadata` | Pillow |
-| PDF | Extract text | `pdf.extract_text` | pypdf |
-| PDF | Split into one file per page | `pdf.split` | pypdf |
-| ZIP | Inspect contents | `archive.inspect` | Python stdlib |
-| ZIP | Safe extract | `archive.extract` | Python stdlib |
+## Quick start
 
-All transform actions create a new output path; they do not overwrite the source file.
-Actions without an implemented backend remain visible as `planned`. Implemented actions whose
-local dependency is missing appear as `unavailable`.
+### Download for Windows
 
-## Design direction
+1. Open **[OmniDrop v0.2.0 Alpha](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.2.0)** and get \`OmniDrop-0.2.0-windows-dev.zip\` **plus** its \`.sha256\` file.
+2. Compare the archive's SHA-256 against the companion checksum. In PowerShell:
 
-The desktop UI uses a low-noise black/white/gray system. The main surface is a drop target,
-not a dashboard full of tool categories.
+   \`\`\`powershell
+   Get-FileHash .\OmniDrop-0.2.0-windows-dev.zip -Algorithm SHA256
+   Get-Content .\OmniDrop-0.2.0-windows-dev.zip.sha256
+   \`\`\`
 
-```text
-Qt GUI / CLI / future shell extension / future agent API
-                       |
-              application services
-                       |
-             normalized action model
-                /             \
-        native adapters     worker adapters
-                              |
-                   Python / FFmpeg / OCR / PDF
-```
+3. Unzip into a dedicated folder outside a Git checkout, for example \`C:\Apps\OmniDrop\`.
+4. Make sure \`python --version\` reports **Python 3.10+**, or configure \`OMNIDROP_PYTHON\`.
+5. Launch **\`OmniDrop.exe\`**, drop a file and choose an available action.
 
-Business behavior must not live only inside Qt slots. Any meaningful capability should be
-reachable through the same application service from GUI and automation surfaces.
+The portable package bundles Qt and selected Python worker dependencies, **not the Python interpreter**. Optional translation language packs and voice models are separate add-ons. Windows may warn about the unsigned Alpha executable.
 
-## Build
+**Troubleshooting:** from the extracted folder, run \`.\omnidrop-cli.exe worker-ping\` to check whether the Python worker can start. See [release limitations](docs/releases/v0.2.0.md).
 
-Requirements:
+### Three ways to use it
 
-- CMake 3.24+
-- C++20 compiler
-- Qt 6.5+ (`Core`, `Widgets`, `Concurrent`)
-- Python 3.10+
+**1. One-off file actions.** Drop an image, PDF, text file or ZIP. OmniDrop checks its type and runtime capabilities, then saves transformed output separately instead of overwriting the original.
 
-Install worker dependencies:
+**2. Visual workflows.** Create a sequence, switch to graph mode, connect branches and joins, preview type/dependency checks, then run and inspect results.
 
-```powershell
+**3. Watched folders.** Explicitly arm one local directory for a chosen workflow. Only *new, stable* arrivals are considered; already-present files and generated outputs are suppressed. Watching is non-recursive and stops with the session.
+
+<!-- VISUAL SLOT 03 / DAG BUILDER: assets/readme/workflow-canvas.webp
+     Real graph-editor screenshot to be added later. -->
+
+## Workflows
+
+OmniDrop's workflow engine reuses the **same stable Action IDs** as the GUI and CLI. Definitions are portable \`.omniworkflow.json\` files, not embedded scripts or unchecked shell commands.
+
+For example, [Clean and deduplicate text](workflows/examples/text-clean.omniworkflow.json):
+
+\`\`\`text
+Your TXT file
+    │
+    ▼
+text.normalize
+    │
+    ▼
+text.deduplicate
+    │
+    ▼
+New output file (original unchanged)
+\`\`\`
+
+Run it from the extracted Windows package:
+
+\`\`\`powershell
+.\omnidrop-cli.exe workflow validate .\workflows\examples\text-clean.omniworkflow.json
+.\omnidrop-cli.exe workflow run .\workflows\examples\text-clean.omniworkflow.json C:\Files\notes.txt
+\`\`\`
+
+Replace \`C:\Files\notes.txt\` with a real text file. The GUI also offers **Preview plan**, **Run workflow**, **Add to Jobs** and **Watch folder...**. The **Stop after current file** control takes effect at safe action boundaries, not mid-write.
+
+**Important retry behavior:** Jobs retry runs the **whole workflow again** and retains previous output files. It does *not* resume from an arbitrary saved node. Folder watching does not auto-start when Windows boots.
+
+[Workflow guide](docs/WORKFLOWS.md) · [Jobs and retries](docs/WORKFLOW_JOBS.md) · [Folder Watch safety](docs/WORKFLOW_WATCH.md) · [Example workflows](workflows/examples)
+
+<!-- VISUAL SLOT 04 / JOBS + WATCH: assets/readme/jobs-history.webp and folder-watch.webp
+     Reserved until real screenshots are available. -->
+
+## Local-first, by design
+
+- **No account for core actions.** Built-in file transforms operate on local files.
+- **No invisible uploads.** Remote translation requires explicit user approval and is separate from local workflow definitions.
+- **Keep originals.** Built-in transformations create new output paths; inspect or remove generated files yourself.
+- **Predictable automation.** Workflows use an allowlist of actions; arbitrary shell commands and implicit network calls are not part of the workflow schema.
+- **Honest dependencies.** Features requiring Pillow, pypdf, Argos, a Piper runtime or a voice pack are reported based on local availability.
+
+Opt-in online providers have their own quotas and privacy policies. See [Security](SECURITY.md) and [translation privacy](docs/TRANSLATION.md).
+
+## Platform support
+
+| Platform | Current support |
+| --- | --- |
+| **Windows 10/11 x64** | Alpha desktop GUI + CLI portable release; Windows CI, tests and packaged smoke |
+| **Linux** | Core/CLI build and tests in CI; no officially packaged desktop release yet |
+| **macOS** | Not currently a supported release target |
+
+## For developers
+
+\`\`\`text
+Qt desktop GUI ─┐
+                ├─→ C++ application services + Action Catalog
+CLI ────────────┘                  │
+                                  ▼
+                         Python/local adapters
+                                  │
+                                  ▼
+                         New outputs + job state
+\`\`\`
+
+Build from source with **CMake 3.24+**, **C++20**, **Qt 6.5+** and **Python 3.10+**:
+
+\`\`\`powershell
 python -m pip install -r python/requirements.txt
-```
-
-Configure, build, and test:
-
-```powershell
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 python -m unittest discover -s tests -p "test_*.py"
-```
+\`\`\`
 
-Run the GUI from the build output and drop a local file into the window.
+The C++ GUI and CLI share application services rather than duplicating business logic. Workers expose structured JSON responses and optional processors are runtime-gated.
 
-For Python worker discovery, OmniDrop checks `OMNIDROP_WORKER` first and then common
-relative development paths. `OMNIDROP_PYTHON` can override the Python executable.
+[Architecture](docs/ARCHITECTURE.md) · [Action contracts](docs/ACTIONS.md) · [Contribution guide](CONTRIBUTING.md) · [CI results](https://github.com/stloendays/OmniDrop-Alpha/actions/workflows/build.yml)
 
-## CLI
+## What's next?
 
-```text
-omnidrop-cli inspect <file>
-omnidrop-cli actions <file>
-omnidrop-cli capabilities
-omnidrop-cli run <action-id> <file>
-omnidrop-cli batch-run <action-id> <file> <file> [...]
-omnidrop-cli translate <file> --from en --to zh --provider argos|mymemory|libretranslate|deepl-free [--allow-upload]
-omnidrop-cli workflow validate <workflow.json>
-omnidrop-cli workflow plan <workflow.json> <file> [...]
-omnidrop-cli workflow run <workflow.json> <file> [...]
-omnidrop-cli workflow enqueue <workflow.json> <file> [...]
-omnidrop-cli workflow jobs
-omnidrop-cli workflow execute <job-id>
-omnidrop-cli workflow watch <workflow.json> <folder> [--max-files N]
-omnidrop-cli worker-ping
-```
+OmniDrop is being built in public. Priorities include:
 
-The CLI exposes the same normalized action IDs used by the GUI. `actions` performs a runtime
-capability probe so unavailable local processors are reported accurately.
+- A self-contained, signed Windows installer and a verified update/rollback path.
+- More capable PDF/image tools, OCR and media adapters.
+- Better workflow history, validated recovery, notifications and scheduling.
+- An extensible plugin / agent integration boundary with stable callable interfaces.
 
-## Repository map
+These are **roadmap items, not promises of features in v0.2.0**. See the [detailed roadmap](docs/ROADMAP.md) and [open issues](https://github.com/stloendays/OmniDrop-Alpha/issues).
 
-```text
-src/domain/        stable file/action domain model
-src/app/           action catalog and application services
-src/adapters/      worker, persistence, and future platform adapters
-src/gui/           Qt desktop presentation
-src/cli/           automation-friendly CLI
-python/            stateless local worker, DAG engine and dependencies
-workflows/examples/ portable workflow templates for common operations
-tests/             C++ catalog tests and Python worker contract tests
-docs/              architecture, action contracts, and roadmap
-```
+## Contributing and community
 
-## Roadmap
+Bug reports, use cases, documentation fixes and small focused PRs are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md), check [existing issues](https://github.com/stloendays/OmniDrop-Alpha/issues), and include reproducible details and sanitized logs. For vulnerabilities, follow [SECURITY.md](SECURITY.md) instead of opening a public issue.
 
-Near-term work is focused on a small number of high-value local operations:
+OmniDrop is released under the **[MIT License](LICENSE)**.
 
-1. Image resize/crop/rotate and OCR.
-2. PDF merge/reorder/rotate, extract images, OCR, image-to-PDF and optimization.
-3. More archive formats plus FFmpeg-backed video/audio compress/convert/extract-audio.
-4. Batch operations and a richer command palette.
-5. Explorer context menu and `Send to OmniDrop` integration.
-6. Plugin SDK and stable automation/agent interface.
-7. Optional AI providers and local-model adapters, always explicit and optional.
-8. Self-contained Windows runtime, signed installer, verified auto-update, rollback, and release channels.
-
-See [docs/ROADMAP.md](docs/ROADMAP.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and
-[docs/ACTIONS.md](docs/ACTIONS.md).
-
-## Principles
-
-- Local-first.
-- No account required for core operations.
-- No hidden uploads or telemetry.
-- Fast native desktop shell.
-- Source files are not overwritten by transform actions.
-- Additive, stable action IDs and callable interfaces.
-- GUI, CLI, and future integrations share one semantic model.
-- Strong status color is reserved for real attention states; helper text stays secondary.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). For security-sensitive reports, see [SECURITY.md](SECURITY.md).
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+<sub>Made for useful local workflows. Illustrations and real product screenshots will be added once verified assets are ready.</sub>
