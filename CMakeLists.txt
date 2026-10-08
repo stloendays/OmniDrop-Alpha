@@ -34,6 +34,7 @@ add_library(omnidrop_adapters
   src/adapters/diagnostics_service.cpp
   src/adapters/python_worker_client.cpp
   src/app/translation_service.cpp
+  src/app/workflow_service.cpp
   src/adapters/recent_files_store.cpp
   src/adapters/action_history_store.cpp
 )
@@ -52,6 +53,7 @@ if(OMNIDROP_BUILD_GUI)
     src/gui/main.cpp
     src/gui/main_window.cpp
     src/gui/translation_dialog.cpp
+    src/gui/workflow_dialog.cpp
     src/gui/drop_zone.cpp
     assets/resources.qrc
   )
@@ -101,10 +103,21 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   target_link_libraries(omnidrop_translation_service_tests PRIVATE omnidrop_adapters Qt6::Core)
   add_test(NAME omnidrop_translation_service_tests COMMAND omnidrop_translation_service_tests)
 
+  add_executable(omnidrop_workflow_service_tests tests/workflow_service_tests.cpp)
+  target_link_libraries(omnidrop_workflow_service_tests PRIVATE omnidrop_adapters Qt6::Core)
+  add_test(NAME omnidrop_workflow_service_tests COMMAND omnidrop_workflow_service_tests)
+
   if(TARGET omnidrop_cli)
     add_test(NAME omnidrop_cli_version COMMAND omnidrop_cli --version)
     set_tests_properties(omnidrop_cli_version PROPERTIES
       PASS_REGULAR_EXPRESSION "^${PROJECT_VERSION}"
+    )
+
+    add_test(NAME omnidrop_cli_workflow_validate
+             COMMAND omnidrop_cli workflow validate
+                     "${CMAKE_CURRENT_SOURCE_DIR}/workflows/examples/text-clean.omniworkflow.json")
+    set_tests_properties(omnidrop_cli_workflow_validate PROPERTIES
+      PASS_REGULAR_EXPRESSION "node_count"
     )
 
     add_test(NAME omnidrop_cli_diagnostics COMMAND omnidrop_cli diagnostics)
@@ -142,6 +155,7 @@ install(DIRECTORY python DESTINATION .
         PATTERN "__pycache__" EXCLUDE
         PATTERN "*.pyc" EXCLUDE)
 install(DIRECTORY assets DESTINATION .)
+install(DIRECTORY workflows DESTINATION .)
 install(FILES README.md LICENSE DESTINATION .)
 
 set(CPACK_PACKAGE_NAME "OmniDrop")
