@@ -57,7 +57,8 @@ int main(int argc, char* argv[]) {
   assert(afterRemoval.at(1).toObject().value("sources").toArray().first().toString() == "$input");
 
   view.requestConnection("$input", "second");
-  assert(view.document() == afterRemoval.isEmpty() ? QJsonObject{} : view.document());
+  assert(edits == 2);  // Duplicate dependency remains unchanged.
+  assert(view.document().value("nodes").toArray() == afterRemoval);
   view.setNodeStatus("first", "running");
   view.setNodeStatus("first", "completed");
 
