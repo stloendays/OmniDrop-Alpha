@@ -1,6 +1,7 @@
 #include "adapters/diagnostics_service.hpp"
 #include "adapters/python_worker_client.hpp"
 #include "app/omnidrop_service.hpp"
+#include "app/translation_service.hpp"
 #include "app/batch_job.hpp"
 
 #include <QCoreApplication>
@@ -25,6 +26,7 @@ int usage() {
       << "  omnidrop-cli diagnostics\n"
       << "  omnidrop-cli run <action-id> <file>\n"
       << "  omnidrop-cli batch-run <action-id> <file> <file> [...]\n"
+      << "  omnidrop-cli translate <file> --from en --to zh --provider argos|mymemory|libretranslate|deepl-free [--allow-upload] [--endpoint https://host/translate]\n"
       << "  omnidrop-cli worker-ping\n";
   return 1;
 }
@@ -96,6 +98,51 @@ int main(int argc, char* argv[]) {
   if (command == "diagnostics" && args.size() == 2) {
     omnidrop::DiagnosticsService diagnostics;
     out << QString::fromUtf8(diagnostics.collectJson(QJsonDocument::Indented));
+    return 0;
+  }
+
+  if (command == "translate" && args.size() >= 9) {
+    omnidrop::TranslationRequest request;
+    request.path = args.at(2);
+    request.sourceLanguage.clear();
+    request.targetLanguage.clear();
+    request.provider.clear();
+
+    for (int index = 3; index < args.size(); ++index) {
+      const auto flag = args.at(index);
+      if (flag == "--allow-upload") {
+        request.allowRemote = true;
+        continue;
+      }
+      if (flag != "--from" && flag != "--to" &&
+          flag != "--provider" && flag != "--endpoint") {
+        err << "Unknown translation option: " << flag << '\n';
+        return usage();
+      }
+      if (index + 1 >= args.size()) {
+        err << "Missing value for " << flag << '\n';
+        return usage();
+      }
+      const auto value = args.at(++index);
+      if (flag == "--from") request.sourceLanguage = value;
+      else if (flag == "--to") request.targetLanguage = value;
+      else if (flag == "--provider") request.provider = value;
+      else if (flag == "--endpoint") request.endpoint = value;
+    }
+
+    omnidrop::TranslationService service;
+    const auto issue = service.validate(request);
+    if (!issue.isEmpty()) {
+      err << issue << '\n';
+      return 4;
+    }
+
+    const auto translated = service.translateFile(request);
+    if (!translated.ok) {
+      err << translated.error << '\n';
+      return 2;
+    }
+    out << translated.output << '\n';
     return 0;
   }
 

@@ -106,4 +106,20 @@ WorkerResult PythonWorkerClient::runBatchAction(
   return invoke(QJsonDocument(root).toJson(QJsonDocument::Compact));
 }
 
+WorkerResult PythonWorkerClient::translateFile(const TranslationRequest& request) const {
+  // Sensitive fields are sent to the worker through stdin, not command-line
+  // arguments, diagnostic logs or persistent settings.
+  QJsonObject root{
+      {"command", "translate_file"},
+      {"path", request.path},
+      {"source_lang", request.sourceLanguage},
+      {"target_lang", request.targetLanguage},
+      {"provider", request.provider},
+      {"allow_remote", request.allowRemote},
+      {"endpoint", request.endpoint},
+      {"api_key", request.apiKey},
+  };
+  return invoke(QJsonDocument(root).toJson(QJsonDocument::Compact));
+}
+
 }  // namespace omnidrop

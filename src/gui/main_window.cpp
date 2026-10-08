@@ -1,6 +1,7 @@
 #include "gui/main_window.hpp"
 
 #include "gui/drop_zone.hpp"
+#include "gui/translation_dialog.hpp"
 
 #include "adapters/diagnostics_service.hpp"
 
@@ -75,7 +76,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   brand->setObjectName("brand");
   header->addWidget(brand);
   header->addStretch();
+  auto* translateButton = new QPushButton("Translate...", root);
+  translateButton->setObjectName("secondaryButton");
   auto* openButton = new QPushButton("Open files", root);
+  header->addWidget(translateButton);
   header->addWidget(openButton);
   layout->addLayout(header);
 
@@ -139,6 +143,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   fileMenu->addSeparator();
   auto* quitAction = fileMenu->addAction("Exit");
 
+  auto* toolsMenu = menuBar()->addMenu("Tools");
+  auto* translateAction = toolsMenu->addAction("Translate text or subtitles...");
+
   auto* historyMenu = menuBar()->addMenu("History");
   auto* clearRecent = historyMenu->addAction("Clear recent files");
   auto* clearActivity = historyMenu->addAction("Clear activity");
@@ -153,6 +160,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     if (!paths.isEmpty()) inspectPaths(paths);
   };
 
+  const auto openTranslation = [this] {
+    const auto preferred = currentBatch_.paths.size() == 1
+        ? currentBatch_.paths.first()
+        : QString{};
+    auto* dialog = new TranslationDialog(preferred, this);
+    dialog->show();
+  };
+  connect(translateButton, &QPushButton::clicked, this, openTranslation);
+  connect(translateAction, &QAction::triggered, this, openTranslation);
   connect(openButton, &QPushButton::clicked, this, chooseFiles);
   connect(openAction, &QAction::triggered, this, chooseFiles);
   connect(quitAction, &QAction::triggered, this, &QWidget::close);
