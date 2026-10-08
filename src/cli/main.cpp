@@ -3,6 +3,7 @@
 #include "app/omnidrop_service.hpp"
 #include "app/translation_service.hpp"
 #include "app/workflow_service.hpp"
+#include "app/workflow_job_service.hpp"
 #include "app/batch_job.hpp"
 
 #include <QCoreApplication>
@@ -32,6 +33,11 @@ int usage() {
       << "  omnidrop-cli workflow plan <workflow.json> <file> [...]\n"
       << "  omnidrop-cli workflow run <workflow.json> <file> [...]\n"
       << "  omnidrop-cli workflow run-stream <workflow.json> <file> [...]\n"
+      << "  omnidrop-cli workflow enqueue <workflow.json> <file> [...]\n"
+      << "  omnidrop-cli workflow jobs\n"
+      << "  omnidrop-cli workflow execute <job-id>\n"
+      << "  omnidrop-cli workflow retry <job-id>\n"
+      << "  omnidrop-cli workflow remove <job-id>\n"
       << "  omnidrop-cli worker-ping\n";
   return 1;
 }
@@ -149,6 +155,60 @@ int main(int argc, char* argv[]) {
     }
     out << translated.output << '\n';
     return 0;
+  }
+
+  if (command == "workflow" && args.size() >= 3) {
+    const QString operation = args.at(2);
+    omnidrop::WorkflowJobService jobs;
+    if (operation == "jobs" && args.size() == 3) {
+      const auto response = jobs.listJobs();
+      if (!response.output.isEmpty()) out << response.output << '\n';
+      if (!response.ok) err << response.error << '\n';
+      return response.ok ? 0 : 2;
+    }
+
+    if (operation == "enqueue" && args.size() >= 5) {
+      omnidrop::WorkflowService workflows;
+      const auto loaded = workflows.load(args.at(3));
+      if (!loaded.ok) {
+        err << loaded.error << '\n';
+        return 3;
+      }
+      const auto response = jobs.enqueue(loaded.document, args.mid(4));
+      if (!response.output.isEmpty()) out << response.output << '\n';
+      if (!response.ok) err << response.error << '\n';
+      return response.ok ? 0 : 2;
+    }
+
+    if ((operation == "execute" || operation == "retry") && args.size() == 4) {
+      const auto response = jobs.execute(
+          args.at(3),
+          [&out](const QJsonObject& event) {
+            out << QJsonDocument(event).toJson(QJsonDocument::Compact) << '\n';
+            out.flush();
+          });
+      QJsonParseError jsonError;
+      const auto parsed = QJsonDocument::fromJson(response.output.toUtf8(), &jsonError);
+      const QJsonObject finished{
+          {"event", "workflow.finished"},
+          {"schema_version", 1},
+          {"result", parsed.isObject()
+              ? QJsonValue(parsed.object())
+              : QJsonValue(QJsonObject{
+                  {"ok", false}, {"error", response.error},
+                })},
+      };
+      out << QJsonDocument(finished).toJson(QJsonDocument::Compact) << '\n';
+      out.flush();
+      return response.ok ? 0 : 2;
+    }
+
+    if (operation == "remove" && args.size() == 4) {
+      const auto response = jobs.remove(args.at(3));
+      if (!response.output.isEmpty()) out << response.output << '\n';
+      if (!response.ok) err << response.error << '\n';
+      return response.ok ? 0 : 2;
+    }
   }
 
   if (command == "workflow" && args.size() >= 4) {
