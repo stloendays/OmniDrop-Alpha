@@ -4,6 +4,7 @@
 #include "gui/workflow_graph_view.hpp"
 
 #include <QColor>
+#include <QDateTime>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QFileDialog>
@@ -25,6 +26,7 @@
 #include <QSet>
 #include <QSplitter>
 #include <QTabWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <QtConcurrent/QtConcurrentRun>
@@ -73,6 +75,14 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
   inputLine->addWidget(inputsLabel_, 1);
   inputLine->addWidget(chooseButton_);
   root->addLayout(inputLine);
+  watchStatusLabel_ = new QLabel(this);
+  watchStatusLabel_->setObjectName("muted");
+  watchStatusLabel_->setWordWrap(true);
+  watchStatusLabel_->setText("Folder watcher: off");
+  watchStatusLabel_->hide();
+  root->addWidget(watchStatusLabel_);
+  watchTimer_ = new QTimer(this);
+  watchTimer_->setInterval(650);
 
   auto* split = new QSplitter(Qt::Horizontal, this);
   auto* left = new QWidget(split);
@@ -187,6 +197,10 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
 
   auto* footer = new QHBoxLayout;
   auto* cancel = new QPushButton("Close", this);
+  watchButton_ = new QPushButton("Watch folder...", this);
+  watchButton_->setToolTip(
+      "Opt in to monitoring one folder. Existing files are ignored; "
+      "only new stable arrivals run through local Workflow Jobs.");
   queueButton_ = new QPushButton("Add to Jobs", this);
   queueButton_->setToolTip("Queue the current workflow and file selection for later execution.");
   planButton_ = new QPushButton("Preview plan", this);
@@ -196,6 +210,7 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
   runButton_ = new QPushButton("Run workflow", this);
   footer->addStretch();
   footer->addWidget(cancel);
+  footer->addWidget(watchButton_);
   footer->addWidget(queueButton_);
   footer->addWidget(planButton_);
   footer->addWidget(stopButton_);
@@ -253,6 +268,8 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
           this, &WorkflowDialog::applyTemplate);
   connect(stepsList_, &QListWidget::itemSelectionChanged,
           this, &WorkflowDialog::refreshButtons);
+  connect(watchButton_, &QPushButton::clicked, this, &WorkflowDialog::toggleFolderWatch);
+  connect(watchTimer_, &QTimer::timeout, this, &WorkflowDialog::pollWatchedFolder);
   connect(queueButton_, &QPushButton::clicked, this, &WorkflowDialog::queueWorkflow);
   connect(refreshJobsButton_, &QPushButton::clicked, this, &WorkflowDialog::refreshJobs);
   connect(executeJobButton_, &QPushButton::clicked, this, &WorkflowDialog::executeSelectedJob);
