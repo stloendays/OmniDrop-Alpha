@@ -44,12 +44,13 @@ Implemented:
 - PNG/JPEG/BMP/WebP to WebP conversion;
 - metadata removal with EXIF orientation preserved visually;
 - 90° clockwise/counterclockwise rotation with EXIF orientation normalized;
+- non-destructive 50% width/height image resize with Lanczos resampling;
 - batch execution for existing image actions.
 
 Next:
 
 - quality/size preview before compression;
-- resize/crop;
+- custom-size resize and crop controls;
 - OCR;
 - animated image semantics.
 
