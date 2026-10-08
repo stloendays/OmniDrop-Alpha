@@ -13,7 +13,7 @@ $encodedPfx = $env:OMNIDROP_CODESIGN_PFX_BASE64
 $passphrase = $env:OMNIDROP_CODESIGN_PASSWORD
 if ([string]::IsNullOrWhiteSpace($encodedPfx) -and
     [string]::IsNullOrWhiteSpace($passphrase)) {
-  Write-Warning "No Authenticode certificate configured. Binaries remain unsigned; the ZIP will still receive GitHub Sigstore provenance."
+  Write-Warning "No Authenticode certificate configured. Binaries remain unsigned; main-branch releases use separate GitHub provenance attestations."
   return
 }
 if ([string]::IsNullOrWhiteSpace($encodedPfx) -or

@@ -45,3 +45,18 @@ creates a signed, verifiable GitHub artifact provenance attestation, and
 the release publisher requires this attestation to match its exact main commit.
 Optional Windows Authenticode signing requires a trusted certificate and
 explicit credentials. See [Signing](CODE_SIGNING.md).
+
+## Local packaging and signing
+
+Use Python 3.13 to stage native worker wheels. With no signing certificate,
+`./scripts/package_windows.ps1` produces an **unsigned** development ZIP.
+For controlled CI signing, use three isolated phases:
+
+```powershell
+./scripts/package_windows.ps1 -StageOnly
+./scripts/sign_windows.ps1 -PackageDir package
+./scripts/package_windows.ps1 -FinalizeOnly
+```
+
+Only the middle phase needs the PFX secret environment variables. Never make
+them available to pip, upstream downloads, or runtime smoke-test processes.
