@@ -19,6 +19,7 @@ class WorkflowJobService {
 
   WorkerResult enqueue(const QJsonObject& definition, const QStringList& paths) const;
   WorkerResult listJobs() const;
+  WorkerResult events(const QString& id) const;
   WorkerResult execute(const QString& id,
                        const PythonWorkerClient::WorkflowEventCallback& onEvent = {},
                        const std::atomic_bool* stopRequested = nullptr) const;
