@@ -93,8 +93,9 @@ Execution returns a run_id, each node status, created_output_paths,
 leaf output_paths, and (on failure) a failed_node plus structured error.
 Every step uses the same existing worker run/run_batch implementation.
 
-No network listener is introduced. The first implementation contains no
-background schedule, durable queue or automatic file watching.
+No network listener is introduced. Durable Jobs and explicit session-only
+folder watching are available through the GUI and CLI; background scheduling
+and automatic startup monitoring are deliberately not included.
 
 ## Streaming progress (opt-in)
 
