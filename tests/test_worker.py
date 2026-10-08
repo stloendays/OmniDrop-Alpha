@@ -26,6 +26,8 @@ class WorkerTests(unittest.TestCase):
             self.assertIn("image.rotate_clockwise", result["actions"])
             self.assertIn("image.rotate_counterclockwise", result["actions"])
         if worker.pypdf_available():
+            self.assertIn("pdf.rotate_clockwise", result["actions"])
+            self.assertIn("pdf.rotate_counterclockwise", result["actions"])
             self.assertIn("pdf.merge", result["actions"])
 
     def test_sha256(self):
@@ -159,6 +161,37 @@ class WorkerTests(unittest.TestCase):
             )
             self.assertFalse(result["ok"])
             self.assertEqual(result["error"]["code"], "image_error")
+
+    @unittest.skipUnless(worker.pypdf_available(), "pypdf is not installed")
+    def test_pdf_rotation_preserves_source_and_direction(self):
+        from pypdf import PdfReader, PdfWriter
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "source.pdf"
+
+            writer = PdfWriter()
+            writer.add_blank_page(width=120, height=200)
+            with path.open("wb") as handle:
+                writer.write(handle)
+
+            before = path.read_bytes()
+
+            clockwise = worker.handle(
+                {"command": "run", "action_id": "pdf.rotate_clockwise", "path": str(path)}
+            )
+            self.assertTrue(clockwise["ok"])
+            self.assertEqual(clockwise["page_count"], 1)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(PdfReader(clockwise["output_path"]).pages[0].rotation, 90)
+
+            counterclockwise = worker.handle(
+                {"command": "run", "action_id": "pdf.rotate_counterclockwise", "path": str(path)}
+            )
+            self.assertTrue(counterclockwise["ok"])
+            self.assertEqual(counterclockwise["page_count"], 1)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(PdfReader(counterclockwise["output_path"]).pages[0].rotation, 270)
 
     @unittest.skipUnless(worker.pypdf_available(), "pypdf is not installed")
     def test_pdf_merge_preserves_inputs_and_order(self):

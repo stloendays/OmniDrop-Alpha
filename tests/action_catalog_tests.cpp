@@ -40,8 +40,16 @@ int main(int argc, char** argv) {
 
   const auto pdf = catalog.recommendedActions(FileKind::Pdf);
   bool hasExtract = false;
-  for (const auto& action : pdf) hasExtract |= action.id == "pdf.extract_text";
+  bool hasPdfRotateClockwise = false;
+  bool hasPdfRotateCounterclockwise = false;
+  for (const auto& action : pdf) {
+    hasExtract |= action.id == "pdf.extract_text";
+    hasPdfRotateClockwise |= action.id == "pdf.rotate_clockwise";
+    hasPdfRotateCounterclockwise |= action.id == "pdf.rotate_counterclockwise";
+  }
   assert(hasExtract);
+  assert(hasPdfRotateClockwise);
+  assert(hasPdfRotateCounterclockwise);
 
   OmniDropService service;
   const QSet<QString> runtimeActions{
@@ -57,6 +65,8 @@ int main(int argc, char** argv) {
       "image.remove_metadata",
       "pdf.extract_text",
       "pdf.split",
+      "pdf.rotate_clockwise",
+      "pdf.rotate_counterclockwise",
       "pdf.merge",
   };
 
@@ -86,6 +96,13 @@ int main(int argc, char** argv) {
   assert(mixed.actions.size() == 1);
   assert(mixed.actions.first().id == "file.sha256");
   assert(mixed.actions.first().available);
+
+  const auto onePdfInspection = service.inspect("a.pdf", runtimeActions);
+  bool pdfRotateAvailable = false;
+  for (const auto& action : onePdfInspection.actions) {
+    if (action.id == "pdf.rotate_clockwise") pdfRotateAvailable = action.available;
+  }
+  assert(pdfRotateAvailable);
 
   const auto twoPdf = service.inspectMany({"a.pdf", "b.pdf"}, runtimeActions);
   bool hasMerge = false;
