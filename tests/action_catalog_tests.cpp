@@ -20,6 +20,9 @@ int main(int argc, char** argv) {
   assert(detectFileKind("photo.png") == FileKind::Image);
   assert(detectFileKind("movie.mp4") == FileKind::Video);
   assert(detectFileKind("notes.txt") == FileKind::Text);
+  assert(detectFileKind("caption.srt") == FileKind::Text);
+  assert(detectFileKind("caption.vtt") == FileKind::Text);
+  assert(detectFileKind("readme.markdown") == FileKind::Text);
   assert(detectFileKind("bundle.zip") == FileKind::Archive);
 
   ActionCatalog catalog;
