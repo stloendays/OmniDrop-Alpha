@@ -53,7 +53,8 @@ Next:
 - draggable DAG graph with editable links, branching, joins and cycle protection: implemented in v2.2;
 - persisted visual layout, accessible connection shortcuts and canvas zoom;
 - streaming per-operation progress and cooperative stop: implemented in Workflow v2 phase 1;
-- failed-action retry and replay;
+- persistent local workflow job queue and explicit full-run retry: implemented in v2.3;
+- per-node checkpoint replay and failed-action-only retry;
 - durable queue/history and verified crash recovery;
 - typed action parameters and variable propagation;
 - consent-aware cloud operations and agent/MCP gateway.
