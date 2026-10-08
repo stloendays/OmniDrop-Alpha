@@ -68,6 +68,7 @@ QList<ActionDescriptor> ActionCatalog::recommendedActions(FileKind kind) const {
     case FileKind::Text:
     case FileKind::Developer:
       actions = {
+          action("text.to_speech", "Create spoken WAV", "Offline neural narration using an installed, verified Piper voice pack.", 5, true, "python-piper"),
           action("text.normalize", "Normalize text", "Normalize line endings and trailing whitespace.", 10, true, "python"),
           action("text.deduplicate", "Remove duplicate lines", "Create a copy with duplicate lines removed.", 20, true, "python"),
           action("text.format_json", "Format JSON", "Validate and pretty-print JSON into a new sibling file.", 30, true, "python"),
