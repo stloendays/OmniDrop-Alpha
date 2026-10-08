@@ -1,6 +1,7 @@
 #include "gui/workflow_dialog.hpp"
 
 #include "app/action_catalog.hpp"
+#include "gui/workflow_graph_view.hpp"
 
 #include <QCloseEvent>
 #include <QComboBox>
@@ -22,6 +23,7 @@
 #include <QPushButton>
 #include <QSet>
 #include <QSplitter>
+#include <QTabWidget>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <QtConcurrent/QtConcurrentRun>
@@ -124,19 +126,27 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
     stepButtons->addWidget(button);
   }
   leftLayout->addLayout(stepButtons);
+  graphEditButton_ = new QPushButton("Edit connections on graph", left);
+  graphEditButton_->setToolTip(
+      "Switch to visual DAG editing: drag nodes and connect their ports.");
+  leftLayout->addWidget(graphEditButton_);
 
   auto* right = new QWidget(split);
   auto* rightLayout = new QVBoxLayout(right);
   rightLayout->setContentsMargins(8, 0, 0, 0);
-  auto* outputTitle = new QLabel("Execution plan / results", right);
+  auto* outputTitle = new QLabel("Workflow graph and execution", right);
   outputTitle->setObjectName("workflowSection");
   rightLayout->addWidget(outputTitle);
-  outputView_ = new QPlainTextEdit(right);
+  rightTabs_ = new QTabWidget(right);
+  graphView_ = new WorkflowGraphView(rightTabs_);
+  rightTabs_->addTab(graphView_, "Graph");
+  outputView_ = new QPlainTextEdit(rightTabs_);
   outputView_->setReadOnly(true);
   outputView_->setPlaceholderText(
-      "Preview runs validation and dependency checks without creating files.\n"
-      "Run executes local actions and reports outputs from each step.");
-  rightLayout->addWidget(outputView_, 1);
+      "Preview checks dependencies without writing files.\n"
+      "Run shows completed nodes, output paths and partial results.");
+  rightTabs_->addTab(outputView_, "Execution results");
+  rightLayout->addWidget(rightTabs_, 1);
   split->addWidget(left);
   split->addWidget(right);
   split->setStretchFactor(0, 1);
@@ -191,10 +201,27 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
   connect(addButton_, &QPushButton::clicked, this, [this] {
     addStep(actionCombo_->currentData().toString());
   });
-  connect(removeButton_, &QPushButton::clicked, this, [this] {
-    delete stepsList_->takeItem(stepsList_->currentRow());
-    refreshButtons();
-  });
+  connect(removeButton_, &QPushButton::clicked, this, &WorkflowDialog::removeStep);
+  connect(graphEditButton_, &QPushButton::clicked, this, &WorkflowDialog::convertToGraph);
+  connect(graphView_, &WorkflowGraphView::editRejected, this,
+          [this](const QString& message) { showStatus(message, true); });
+  connect(graphView_, &WorkflowGraphView::workflowChanged, this,
+          [this](const QJsonObject& document) {
+            if (busy_) return;
+            loadedDefinition_ = document;
+            graphMode_ = true;
+            refreshGraphSteps();
+            showStatus("Connection updated. Preview formats before running.");
+          });
+  connect(graphView_, &WorkflowGraphView::nodeSelected, this,
+          [this](const QString& nodeId) {
+            for (int i = 0; i < stepsList_->count(); ++i) {
+              if (stepsList_->item(i)->data(Qt::UserRole + 1).toString() == nodeId) {
+                stepsList_->setCurrentRow(i);
+                break;
+              }
+            }
+          });
   connect(upButton_, &QPushButton::clicked, this, [this] { moveStep(-1); });
   connect(downButton_, &QPushButton::clicked, this, [this] { moveStep(1); });
   connect(templateCombo_, qOverload<int>(&QComboBox::currentIndexChanged),
@@ -213,6 +240,7 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
 
   refreshInputs();
   refreshButtons();
+  refreshGraph();
 }
 
 void WorkflowDialog::refreshInputs() {
@@ -228,17 +256,104 @@ void WorkflowDialog::refreshInputs() {
 }
 
 void WorkflowDialog::addStep(const QString& actionId) {
-  if (readOnlyGraph_ || busy_ || actionId.isEmpty()) return;
+  if (busy_ || actionId.isEmpty()) return;
+  if (stepsList_->count() >= 24) {
+    showStatus("A workflow cannot exceed 24 nodes.", true);
+    return;
+  }
+  if (graphMode_) {
+    auto nodes = loadedDefinition_.value("nodes").toArray();
+    QSet<QString> usedIds;
+    for (const auto& raw : nodes) usedIds.insert(raw.toObject().value("id").toString());
+    int index = 1;
+    QString id;
+    do { id = QString("node_%1").arg(index++); } while (usedIds.contains(id));
+    nodes.append(QJsonObject{
+        {"id", id},
+        {"action_id", actionId},
+        {"sources", QJsonArray{QStringLiteral("$input")}},
+    });
+    loadedDefinition_.insert("nodes", nodes);
+    refreshGraphSteps();
+    refreshGraph();
+    showStatus("Node added. Connect its input to another output, or leave it connected to Files.");
+    return;
+  }
   auto* item = new QListWidgetItem(
       QString("%1. %2").arg(stepsList_->count() + 1).arg(actionId));
   item->setData(Qt::UserRole, actionId);
   stepsList_->addItem(item);
   stepsList_->setCurrentRow(stepsList_->count() - 1);
   refreshButtons();
+  refreshGraph();
+}
+
+void WorkflowDialog::removeStep() {
+  if (busy_ || stepsList_->currentRow() < 0) return;
+  if (graphMode_) {
+    const QString id = stepsList_->currentItem()->data(Qt::UserRole + 1).toString();
+    const auto previous = loadedDefinition_.value("nodes").toArray();
+    QJsonArray updated;
+    for (const auto& raw : previous) {
+      auto node = raw.toObject();
+      if (node.value("id").toString() == id) continue;
+      QJsonArray refs;
+      for (const auto& ref : node.value("sources").toArray()) {
+        if (ref.toString() != id) refs.append(ref);
+      }
+      if (refs.isEmpty()) refs.append("$input");
+      node.insert("sources", refs);
+      updated.append(node);
+    }
+    loadedDefinition_.insert("nodes", updated);
+    refreshGraphSteps();
+  } else {
+    delete stepsList_->takeItem(stepsList_->currentRow());
+    for (int index = 0; index < stepsList_->count(); ++index) {
+      auto* item = stepsList_->item(index);
+      item->setText(QString("%1. %2").arg(index + 1)
+                        .arg(item->data(Qt::UserRole).toString()));
+    }
+  }
+  refreshGraph();
+  refreshButtons();
+}
+
+void WorkflowDialog::convertToGraph() {
+  if (busy_ || graphMode_ || stepsList_->count() == 0) return;
+  loadedDefinition_ = definition();
+  graphMode_ = true;
+  refreshGraphSteps();
+  refreshGraph();
+  rightTabs_->setCurrentWidget(graphView_);
+  showStatus("Graph mode: drag from a right port to a left port; right-click links to disconnect.");
+  refreshButtons();
+}
+
+void WorkflowDialog::refreshGraphSteps() {
+  if (!graphMode_) return;
+  const auto nodes = loadedDefinition_.value("nodes").toArray();
+  stepsList_->clear();
+  for (const auto& raw : nodes) {
+    const auto node = raw.toObject();
+    const auto id = node.value("id").toString();
+    const auto action = node.value("action_id").toString();
+    auto* item = new QListWidgetItem(id + "  ·  " + action);
+    item->setData(Qt::UserRole, action);
+    item->setData(Qt::UserRole + 1, id);
+    item->setToolTip("Inputs: " + QString::fromUtf8(
+        QJsonDocument(node.value("sources").toArray()).toJson(QJsonDocument::Compact)));
+    stepsList_->addItem(item);
+  }
+  refreshButtons();
+}
+
+void WorkflowDialog::refreshGraph() {
+  if (graphView_) graphView_->setDocument(definition());
 }
 
 void WorkflowDialog::moveStep(int offset) {
-  if (readOnlyGraph_ || busy_) return;
+  if (graphMode_ || busy_) return;
   const auto current = stepsList_->currentRow();
   const auto destination = current + offset;
   if (current < 0 || destination < 0 || destination >= stepsList_->count()) return;
@@ -250,6 +365,7 @@ void WorkflowDialog::moveStep(int offset) {
     step->setText(QString("%1. %2").arg(i + 1).arg(step->data(Qt::UserRole).toString()));
   }
   refreshButtons();
+  refreshGraph();
 }
 
 void WorkflowDialog::applyTemplate(int preset) {
@@ -276,7 +392,7 @@ void WorkflowDialog::applyTemplate(int preset) {
 void WorkflowDialog::newWorkflow() {
   if (busy_) return;
   loadedDefinition_ = {};
-  readOnlyGraph_ = false;
+  graphMode_ = false;
   nameEdit_->setEnabled(true);
   stepsList_->clear();
   nameEdit_->setText("New workflow");
@@ -286,6 +402,7 @@ void WorkflowDialog::newWorkflow() {
   outputView_->clear();
   showStatus("Blank workflow ready.");
   refreshButtons();
+  refreshGraph();
 }
 
 void WorkflowDialog::selectInputs() {
@@ -297,7 +414,11 @@ void WorkflowDialog::selectInputs() {
 }
 
 QJsonObject WorkflowDialog::definition() const {
-  if (readOnlyGraph_) return loadedDefinition_;
+  if (graphMode_) {
+    auto document = loadedDefinition_;
+    document.insert("name", nameEdit_->text().trimmed());
+    return document;
+  }
 
   QJsonArray nodes;
   for (int i = 0; i < stepsList_->count(); ++i) {
@@ -334,22 +455,13 @@ void WorkflowDialog::loadWorkflow() {
     return;
   }
   loadedDefinition_ = loaded.document;
-  readOnlyGraph_ = true;
+  graphMode_ = true;
   nameEdit_->setText(loadedDefinition_.value("name").toString());
-  nameEdit_->setEnabled(false);
-  stepsList_->clear();
-  const auto nodes = loadedDefinition_.value("nodes").toArray();
-  for (const auto& raw : nodes) {
-    const auto node = raw.toObject();
-    auto* item = new QListWidgetItem(
-        node.value("id").toString() + "  ·  " + node.value("action_id").toString());
-    item->setToolTip("Sources: " +
-                      QString::fromUtf8(QJsonDocument(node.value("sources").toArray())
-                                            .toJson(QJsonDocument::Compact)));
-    stepsList_->addItem(item);
-  }
+  refreshGraphSteps();
   outputView_->clear();
-  showStatus("Loaded a saved DAG in read-only graph mode. New creates an editable linear workflow.");
+  refreshGraph();
+  rightTabs_->setCurrentWidget(graphView_);
+  showStatus("Loaded editable DAG. Drag from output ports to input ports to edit dependencies.");
   refreshButtons();
 }
 
@@ -367,21 +479,25 @@ void WorkflowDialog::saveWorkflow() {
 }
 
 void WorkflowDialog::refreshButtons() {
-  const bool editing = !readOnlyGraph_ && !busy_;
+  const bool editing = !busy_;
+  const bool linear = !graphMode_ && !busy_;
   const int index = stepsList_->currentRow();
   nameEdit_->setEnabled(editing);
   actionCombo_->setEnabled(editing);
-  templateCombo_->setEnabled(editing);
-  stepsList_->setEnabled(!busy_);
+  templateCombo_->setEnabled(linear);
+  stepsList_->setEnabled(editing);
+  graphView_->setEnabled(editing);
   addButton_->setEnabled(editing);
   removeButton_->setEnabled(editing && index >= 0);
-  upButton_->setEnabled(editing && index > 0);
-  downButton_->setEnabled(editing && index >= 0 && index + 1 < stepsList_->count());
+  upButton_->setEnabled(linear && index > 0);
+  downButton_->setEnabled(linear && index >= 0 && index + 1 < stepsList_->count());
+  graphEditButton_->setEnabled(linear && stepsList_->count() > 0);
+  graphEditButton_->setVisible(!graphMode_);
   chooseButton_->setEnabled(!busy_);
   loadButton_->setEnabled(!busy_);
-  saveButton_->setEnabled(!busy_ && (readOnlyGraph_ || stepsList_->count() > 0));
+  saveButton_->setEnabled(editing && stepsList_->count() > 0);
   newButton_->setEnabled(!busy_);
-  planButton_->setEnabled(!busy_ && (readOnlyGraph_ || stepsList_->count() > 0) && !inputs_.isEmpty());
+  planButton_->setEnabled(editing && stepsList_->count() > 0 && !inputs_.isEmpty());
   runButton_->setEnabled(planButton_->isEnabled());
   if (stopButton_) stopButton_->setEnabled(busy_ && stopRequested_ &&
                                           !stopRequested_->load(std::memory_order_acquire));
@@ -400,6 +516,7 @@ void WorkflowDialog::begin(bool execute) {
   refreshButtons();
   showStatus(execute ? "Running local workflow..." : "Preparing read-only execution plan...");
   outputView_->clear();
+  rightTabs_->setCurrentWidget(outputView_);
 
   auto* watcher = new QFutureWatcher<WorkerResult>(this);
   connect(watcher, &QFutureWatcher<WorkerResult>::finished, this, [this, watcher, execute] {
@@ -428,6 +545,13 @@ void WorkflowDialog::begin(bool execute) {
                   guard->runProgress_->setRange(0, total);
                   guard->runProgress_->setValue(completed);
                   guard->runProgress_->setFormat(QString("%1 / %2").arg(completed).arg(total));
+                }
+                if (type == "workflow.node_started") {
+                  guard->graphView_->setNodeStatus(event.value("node_id").toString(), "running");
+                } else if (type == "workflow.node_completed") {
+                  guard->graphView_->setNodeStatus(event.value("node_id").toString(), "completed");
+                } else if (type == "workflow.failed") {
+                  guard->graphView_->setNodeStatus(event.value("node_id").toString(), "failed");
                 }
                 if (type == "workflow.node_started" ||
                     type == "workflow.action_started" ||

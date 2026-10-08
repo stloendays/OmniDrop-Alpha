@@ -54,6 +54,8 @@ if(OMNIDROP_BUILD_GUI)
     src/gui/main_window.cpp
     src/gui/translation_dialog.cpp
     src/gui/workflow_dialog.cpp
+    src/gui/workflow_graph_view.cpp
+    src/gui/workflow_graph_view.hpp
     src/gui/drop_zone.cpp
     assets/resources.qrc
   )
@@ -124,6 +126,17 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
     set_tests_properties(omnidrop_cli_diagnostics PROPERTIES
       PASS_REGULAR_EXPRESSION "\"schema_version\""
     )
+  endif()
+
+  if(OMNIDROP_BUILD_GUI)
+    add_executable(omnidrop_graph_view_tests
+      tests/workflow_graph_view_tests.cpp
+      src/gui/workflow_graph_view.cpp
+      src/gui/workflow_graph_view.hpp)
+    target_link_libraries(omnidrop_graph_view_tests PRIVATE omnidrop_core Qt6::Widgets)
+    add_test(NAME omnidrop_graph_view_tests COMMAND omnidrop_graph_view_tests)
+    set_tests_properties(omnidrop_graph_view_tests PROPERTIES
+      ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
   endif()
 
   if(TARGET omnidrop_desktop)

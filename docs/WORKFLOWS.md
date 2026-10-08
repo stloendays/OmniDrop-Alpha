@@ -13,9 +13,20 @@ same manifest runs in the Qt editor, CLI, and future agent adapters.
 5. Click **Run workflow** and review generated files and per-node results.
 6. **Save...** writes a reusable .omniworkflow.json file. **Load...** opens it.
 
-The initial GUI can author sequential workflows. Any saved DAG with branches
-or joins can also be loaded, planned and executed, but opens in read-only
-graph mode to avoid changing dependency semantics accidentally.
+The Qt editor supports two authoring modes:
+
+- **Linear recipes:** add/remove/reorder steps in the list, then choose
+  **Edit connections on graph** to convert them into an editable DAG.
+- **Graph editor:** move node cards on the canvas; drag the circle on a node's
+  right edge onto the left-edge circle of another node to connect. Right-click
+  an existing link to disconnect it. Add new nodes as independent branches,
+  or remove them and reconnect downstream inputs to Files. The editor detects
+  dependency cycles and refuses invalid links.
+
+Previously saved DAGs now load directly into editable graph mode, with the
+same schema_version=1. Graph positions are intentionally transient in v2.2;
+connections are saved in the JSON document, but visual coordinates are not.
+A Graph and an Execution results tab keep editing separate from run evidence.
 
 ## CLI
 
@@ -106,7 +117,7 @@ frames. Final results still list created output paths.
 
 ## Next iterations
 
-- Visual node/edge editor supporting joins and branching
+- Persistable node positions, keyboard-accessible link editing and canvas zoom
 - Durable job IDs, failed-action retry, and crash/restart recovery
 - Durable queue, restart recovery, triggers and monitoring
 - Typed action parameters, variables and versioned migration
