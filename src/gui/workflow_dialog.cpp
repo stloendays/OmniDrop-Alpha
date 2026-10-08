@@ -280,8 +280,14 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
   connect(stopButton_, &QPushButton::clicked, this, [this] {
     if (!busy_ || !stopRequested_) return;
     stopRequested_->store(true, std::memory_order_release);
+    if (watchEnabled_) {
+      watchEnabled_ = false;
+      watchTimer_->stop();
+      pendingWatchInputs_.clear();
+      watchStatusLabel_->hide();
+    }
     stopButton_->setEnabled(false);
-    showStatus("Stopping after the current file action finishes...");
+    showStatus("Stopping safely after the current file action finishes...");
   });
   connect(cancel, &QPushButton::clicked, this, &WorkflowDialog::reject);
 
@@ -799,8 +805,8 @@ void WorkflowDialog::runNextWatchedFile() {
 }
 
 void WorkflowDialog::refreshButtons() {
-  const bool editing = !busy_;
-  const bool linear = !graphMode_ && !busy_;
+  const bool editing = !busy_ && !watchEnabled_;
+  const bool linear = !graphMode_ && editing;
   const int index = stepsList_->currentRow();
   nameEdit_->setEnabled(editing);
   actionCombo_->setEnabled(editing);
@@ -819,6 +825,8 @@ void WorkflowDialog::refreshButtons() {
   newButton_->setEnabled(!busy_);
   planButton_->setEnabled(editing && stepsList_->count() > 0 && !inputs_.isEmpty());
   runButton_->setEnabled(planButton_->isEnabled());
+  watchButton_->setText(watchEnabled_ ? "Stop Watching" : "Watch folder...");
+  watchButton_->setEnabled(watchEnabled_ || (!busy_ && stepsList_->count() > 0));
   queueButton_->setEnabled(planButton_->isEnabled());
   const auto selectedJob = jobsList_->currentItem();
   const QString state = selectedJob ? selectedJob->data(Qt::UserRole + 1).toString() : QString{};
@@ -826,7 +834,7 @@ void WorkflowDialog::refreshButtons() {
       (state == "queued" || state == "failed" ||
        state == "stopped" || state == "interrupted"));
   removeJobButton_->setEnabled(editing && selectedJob && state != "running");
-  refreshJobsButton_->setEnabled(editing);
+  refreshJobsButton_->setEnabled(!busy_);
   if (stopButton_) stopButton_->setEnabled(busy_ && stopRequested_ &&
                                           !stopRequested_->load(std::memory_order_acquire));
 }
@@ -940,6 +948,18 @@ void WorkflowDialog::showStatus(const QString& message, bool error) {
 }
 
 void WorkflowDialog::reject() {
+  if (watchEnabled_) {
+    if (QMessageBox::question(
+            this, "Stop folder watching?",
+            "Closing this editor stops folder monitoring. Continue?",
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::No) != QMessageBox::Yes) {
+      return;
+    }
+    watchEnabled_ = false;
+    watchTimer_->stop();
+    folderWatch_.stop();
+  }
   if (busy_) {
     QMessageBox::information(this, "Workflow running",
                              "A local action is still running. Close this editor once it finishes.");
@@ -949,6 +969,19 @@ void WorkflowDialog::reject() {
 }
 
 void WorkflowDialog::closeEvent(QCloseEvent* event) {
+  if (watchEnabled_) {
+    const auto answer = QMessageBox::question(
+        this, "Stop folder watching?",
+        "Closing the Workflow editor stops monitoring this folder. Close?",
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    if (answer != QMessageBox::Yes) {
+      event->ignore();
+      return;
+    }
+    watchEnabled_ = false;
+    watchTimer_->stop();
+    folderWatch_.stop();
+  }
   if (busy_) {
     event->ignore();
     return;
