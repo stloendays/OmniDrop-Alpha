@@ -1,9 +1,14 @@
 #include "app/workflow_folder_watch_service.hpp"
 
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QLockFile>
+#include <QStandardPaths>
+
+#include <utility>
 
 namespace omnidrop {
 namespace {
@@ -30,7 +35,25 @@ QString normalizedFilePath(const QFileInfo& item) {
   return QDir::cleanPath(item.absoluteFilePath());
 }
 
+QString watchLockPath(const QString& folder) {
+  const auto storage = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+  if (storage.isEmpty()) return {};
+  const auto directory = QDir(storage).filePath("OmniDrop/workflows/watch-locks");
+  if (!QDir().mkpath(directory)) return {};
+#ifdef Q_OS_WIN
+  const auto identity = folder.toCaseFolded().toUtf8();
+#else
+  const auto identity = folder.toUtf8();
+#endif
+  const auto digest = QCryptographicHash::hash(identity, QCryptographicHash::Sha256).toHex();
+  return QDir(directory).filePath(QString::fromLatin1(digest) + ".lock");
+}
+
 }  // namespace
+
+WorkflowFolderWatchService::~WorkflowFolderWatchService() {
+  stop();
+}
 
 bool WorkflowFolderWatchService::arm(
     const QString& folder, const QJsonObject& workflow, QString* error) {
@@ -61,12 +84,25 @@ bool WorkflowFolderWatchService::arm(
     return false;
   }
 
+  const auto path = watchLockPath(directory.absolutePath());
+  if (path.isEmpty()) {
+    if (error) *error = "Cannot create local folder-watch lock directory.";
+    return false;
+  }
+  auto exclusive = std::make_unique<QLockFile>(path);
+  exclusive->setStaleLockTime(0);
+  if (!exclusive->tryLock(0)) {
+    if (error) *error = "This folder is already watched by another OmniDrop process.";
+    return false;
+  }
+
   const auto files = visibleFiles(directory.absolutePath());
   if (files.size() > kMaximumEntries) {
     if (error) *error = "Folder exceeds the 4,096-file watch safety limit.";
     return false;
   }
 
+  watchLock_ = std::move(exclusive);
   folder_ = directory.absolutePath();
   workflow_ = workflow;
   // Baseline files always remain suppressed, even if their contents change
@@ -148,6 +184,10 @@ void WorkflowFolderWatchService::ignoreCreatedOutputs(const QStringList& paths) 
 }
 
 void WorkflowFolderWatchService::stop() {
+  if (watchLock_) {
+    watchLock_->unlock();
+    watchLock_.reset();
+  }
   folder_.clear();
   workflow_ = {};
   pending_.clear();
