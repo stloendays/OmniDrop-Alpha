@@ -41,7 +41,8 @@ QJsonObject workflow() {
 void writeInput(const QString& path) {
   QFile source(path);
   assert(source.open(QIODevice::WriteOnly));
-  assert(source.write("one  \none  \ntwo \n") == 18);
+  const QByteArray contents("one  \none  \ntwo \n");
+  assert(source.write(contents) == contents.size());
 }
 
 }  // namespace
