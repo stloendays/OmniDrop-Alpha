@@ -146,6 +146,27 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
       "Preview checks dependencies without writing files.\n"
       "Run shows completed nodes, output paths and partial results.");
   rightTabs_->addTab(outputView_, "Execution results");
+  auto* jobsPanel = new QWidget(rightTabs_);
+  auto* jobsLayout = new QVBoxLayout(jobsPanel);
+  jobsLayout->setContentsMargins(10, 8, 10, 8);
+  auto* jobsHint = new QLabel(
+      "Jobs are stored locally and survive restarts. Retry reruns all steps with new outputs.",
+      jobsPanel);
+  jobsHint->setObjectName("muted");
+  jobsHint->setWordWrap(true);
+  jobsLayout->addWidget(jobsHint);
+  jobsList_ = new QListWidget(jobsPanel);
+  jobsList_->setSelectionMode(QAbstractItemView::SingleSelection);
+  jobsLayout->addWidget(jobsList_, 1);
+  auto* jobControls = new QHBoxLayout;
+  refreshJobsButton_ = new QPushButton("Refresh", jobsPanel);
+  executeJobButton_ = new QPushButton("Run / Retry", jobsPanel);
+  removeJobButton_ = new QPushButton("Remove record", jobsPanel);
+  jobControls->addWidget(refreshJobsButton_);
+  jobControls->addWidget(executeJobButton_);
+  jobControls->addWidget(removeJobButton_);
+  jobsLayout->addLayout(jobControls);
+  rightTabs_->addTab(jobsPanel, "Jobs");
   rightLayout->addWidget(rightTabs_, 1);
   split->addWidget(left);
   split->addWidget(right);
@@ -165,6 +186,8 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
 
   auto* footer = new QHBoxLayout;
   auto* cancel = new QPushButton("Close", this);
+  queueButton_ = new QPushButton("Add to Jobs", this);
+  queueButton_->setToolTip("Queue the current workflow and file selection for later execution.");
   planButton_ = new QPushButton("Preview plan", this);
   stopButton_ = new QPushButton("Stop after current file", this);
   stopButton_->setEnabled(false);
@@ -172,6 +195,7 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
   runButton_ = new QPushButton("Run workflow", this);
   footer->addStretch();
   footer->addWidget(cancel);
+  footer->addWidget(queueButton_);
   footer->addWidget(planButton_);
   footer->addWidget(stopButton_);
   footer->addWidget(runButton_);
@@ -228,6 +252,11 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
           this, &WorkflowDialog::applyTemplate);
   connect(stepsList_, &QListWidget::itemSelectionChanged,
           this, &WorkflowDialog::refreshButtons);
+  connect(queueButton_, &QPushButton::clicked, this, &WorkflowDialog::queueWorkflow);
+  connect(refreshJobsButton_, &QPushButton::clicked, this, &WorkflowDialog::refreshJobs);
+  connect(executeJobButton_, &QPushButton::clicked, this, &WorkflowDialog::executeSelectedJob);
+  connect(removeJobButton_, &QPushButton::clicked, this, &WorkflowDialog::removeSelectedJob);
+  connect(jobsList_, &QListWidget::itemSelectionChanged, this, &WorkflowDialog::refreshButtons);
   connect(planButton_, &QPushButton::clicked, this, [this] { begin(false); });
   connect(runButton_, &QPushButton::clicked, this, [this] { begin(true); });
   connect(stopButton_, &QPushButton::clicked, this, [this] {
@@ -241,6 +270,7 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
   refreshInputs();
   refreshButtons();
   refreshGraph();
+  refreshJobs();
 }
 
 void WorkflowDialog::refreshInputs() {
@@ -499,6 +529,14 @@ void WorkflowDialog::refreshButtons() {
   newButton_->setEnabled(!busy_);
   planButton_->setEnabled(editing && stepsList_->count() > 0 && !inputs_.isEmpty());
   runButton_->setEnabled(planButton_->isEnabled());
+  queueButton_->setEnabled(planButton_->isEnabled());
+  const auto selectedJob = jobsList_->currentItem();
+  const QString state = selectedJob ? selectedJob->data(Qt::UserRole + 1).toString() : QString{};
+  executeJobButton_->setEnabled(editing && selectedJob &&
+      (state == "queued" || state == "failed" ||
+       state == "stopped" || state == "interrupted"));
+  removeJobButton_->setEnabled(editing && selectedJob && state != "running");
+  refreshJobsButton_->setEnabled(editing);
   if (stopButton_) stopButton_->setEnabled(busy_ && stopRequested_ &&
                                           !stopRequested_->load(std::memory_order_acquire));
 }
