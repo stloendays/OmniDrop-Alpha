@@ -91,6 +91,7 @@ int main(int argc, char** argv) {
   QFile original(source);
   assert(original.open(QIODevice::ReadOnly));
   assert(original.readAll() == "one  \none  \ntwo \n");
+  original.close();  // Windows forbids deleting a still-open input file.
 
   // Failed runs can be retried explicitly. They rerun the entire graph.
   const auto next = service.enqueue(workflow(), {source});
