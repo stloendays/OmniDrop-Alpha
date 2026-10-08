@@ -301,6 +301,47 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(Path(output["output_paths"][0]).read_text(), "A\n")
             self.assertEqual(path.read_text(), "A  \nA  \n")
 
+    def test_streaming_checkpoint_cancellation_with_fast_actions(self):
+        graph = definition([
+            node("normalize", "text.normalize"),
+            node("unique", "text.deduplicate", ["normalize"]),
+        ])
+        with tempfile.TemporaryDirectory() as directory:
+            file = Path(directory) / "quick.txt"
+            file.write_text("alpha  \nalpha  \n", encoding="utf-8")
+            proc = subprocess.Popen(
+                [sys.executable, "-u", str(ROOT / "python" / "worker.py")],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True,
+            )
+            try:
+                request = {
+                    "command": "workflow.run_stream", "flow_control": True,
+                    "workflow": graph, "paths": [str(file)],
+                }
+                proc.stdin.write(json.dumps(request) + "\n")
+                proc.stdin.flush()
+
+                events = []
+                for _ in range(30):
+                    event = json.loads(proc.stdout.readline())
+                    events.append(event)
+                    if event["event"] == "workflow.action_completed":
+                        proc.stdin.write('{"command":"workflow.cancel"}\n')
+                        proc.stdin.flush()
+                    if event["event"] == "workflow.finished":
+                        break
+                self.assertEqual(proc.wait(timeout=10), 2)
+                result = events[-1]["result"]
+                self.assertEqual(result["status"], "stopped")
+                self.assertEqual(result["completed_operations"], 1)
+                self.assertEqual(len(result["created_output_paths"]), 1)
+                self.assertEqual(file.read_text(), "alpha  \nalpha  \n")
+            finally:
+                if proc.poll() is None:
+                    proc.kill()
+                    proc.wait(timeout=5)
+
     def test_invalid_worker_command_is_rejected(self):
         result = worker.handle({
             "command": "workflow.run",
