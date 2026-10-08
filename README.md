@@ -67,21 +67,21 @@ Unlike a general-purpose office suite, OmniDrop concentrates on the file operati
 
 ### Download for Windows
 
-1. Open **[OmniDrop v0.2.0 Alpha](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.2.0)** and get \`OmniDrop-0.2.0-windows-dev.zip\` **plus** its \`.sha256\` file.
+1. Open **[OmniDrop v0.2.0 Alpha](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.2.0)** and get `OmniDrop-0.2.0-windows-dev.zip` **plus** its `.sha256` file.
 2. Compare the archive's SHA-256 against the companion checksum. In PowerShell:
 
-   \`\`\`powershell
+   ```powershell
    Get-FileHash .\OmniDrop-0.2.0-windows-dev.zip -Algorithm SHA256
    Get-Content .\OmniDrop-0.2.0-windows-dev.zip.sha256
-   \`\`\`
+   ```
 
-3. Unzip into a dedicated folder outside a Git checkout, for example \`C:\Apps\OmniDrop\`.
-4. Make sure \`python --version\` reports **Python 3.10+**, or configure \`OMNIDROP_PYTHON\`.
-5. Launch **\`OmniDrop.exe\`**, drop a file and choose an available action.
+3. Unzip into a dedicated folder outside a Git checkout, for example `C:\Apps\OmniDrop`.
+4. Make sure `python --version` reports **Python 3.10+**, or configure `OMNIDROP_PYTHON`.
+5. Launch **`OmniDrop.exe`**, drop a file and choose an available action.
 
 The portable package bundles Qt and selected Python worker dependencies, **not the Python interpreter**. Optional translation language packs and voice models are separate add-ons. Windows may warn about the unsigned Alpha executable.
 
-**Troubleshooting:** from the extracted folder, run \`.\omnidrop-cli.exe worker-ping\` to check whether the Python worker can start. See [release limitations](docs/releases/v0.2.0.md).
+**Troubleshooting:** from the extracted folder, run `.\omnidrop-cli.exe worker-ping` to check whether the Python worker can start. See [release limitations](docs/releases/v0.2.0.md).
 
 ### Three ways to use it
 
@@ -96,11 +96,11 @@ The portable package bundles Qt and selected Python worker dependencies, **not t
 
 ## Workflows
 
-OmniDrop's workflow engine reuses the **same stable Action IDs** as the GUI and CLI. Definitions are portable \`.omniworkflow.json\` files, not embedded scripts or unchecked shell commands.
+OmniDrop's workflow engine reuses the **same stable Action IDs** as the GUI and CLI. Definitions are portable `.omniworkflow.json` files, not embedded scripts or unchecked shell commands.
 
 For example, [Clean and deduplicate text](workflows/examples/text-clean.omniworkflow.json):
 
-\`\`\`text
+```text
 Your TXT file
     │
     ▼
@@ -111,16 +111,16 @@ text.deduplicate
     │
     ▼
 New output file (original unchanged)
-\`\`\`
+```
 
 Run it from the extracted Windows package:
 
-\`\`\`powershell
+```powershell
 .\omnidrop-cli.exe workflow validate .\workflows\examples\text-clean.omniworkflow.json
 .\omnidrop-cli.exe workflow run .\workflows\examples\text-clean.omniworkflow.json C:\Files\notes.txt
-\`\`\`
+```
 
-Replace \`C:\Files\notes.txt\` with a real text file. The GUI also offers **Preview plan**, **Run workflow**, **Add to Jobs** and **Watch folder...**. The **Stop after current file** control takes effect at safe action boundaries, not mid-write.
+Replace `C:\Files\notes.txt` with a real text file. The GUI also offers **Preview plan**, **Run workflow**, **Add to Jobs** and **Watch folder...**. The **Stop after current file** control takes effect at safe action boundaries, not mid-write.
 
 **Important retry behavior:** Jobs retry runs the **whole workflow again** and retains previous output files. It does *not* resume from an arbitrary saved node. Folder watching does not auto-start when Windows boots.
 
@@ -149,7 +149,7 @@ Opt-in online providers have their own quotas and privacy policies. See [Securit
 
 ## For developers
 
-\`\`\`text
+```text
 Qt desktop GUI ─┐
                 ├─→ C++ application services + Action Catalog
 CLI ────────────┘                  │
@@ -158,17 +158,17 @@ CLI ────────────┘                  │
                                   │
                                   ▼
                          New outputs + job state
-\`\`\`
+```
 
 Build from source with **CMake 3.24+**, **C++20**, **Qt 6.5+** and **Python 3.10+**:
 
-\`\`\`powershell
+```powershell
 python -m pip install -r python/requirements.txt
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 python -m unittest discover -s tests -p "test_*.py"
-\`\`\`
+```
 
 The C++ GUI and CLI share application services rather than duplicating business logic. Workers expose structured JSON responses and optional processors are runtime-gated.
 
