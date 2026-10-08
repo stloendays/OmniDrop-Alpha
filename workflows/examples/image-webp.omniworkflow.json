@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "name": "Convert and compress images",
+  "description": "Produce WebP copies and optimize the converted images.",
+  "nodes": [
+    {"id": "convert", "action_id": "image.convert_webp", "sources": ["$input"]},
+    {"id": "compress", "action_id": "image.compress", "sources": ["convert"]}
+  ]
+}
