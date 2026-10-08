@@ -18,3 +18,8 @@ Thumbs.db
 /python/vendor/
 /package/
 /OmniDrop-*.zip
+
+# Optional local model weights and generated standalone packs
+/models/voice-packs/
+/dist/
+*.onnx
