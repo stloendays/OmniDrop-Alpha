@@ -96,6 +96,22 @@ Future long-running jobs must move to a framed persistent protocol or local IPC 
 explicit job IDs, progress events, cancellation, timeout, and crash recovery. Do not overload this
 one-shot v1 protocol silently.
 
+## Optional translation worker command
+
+Translation is an **explicit standalone command**, not an automatic file action.
+The existing worker-v1 protocol accepts:
+
+```json
+{"command":"translate_file","path":"C:/notes.txt","source_lang":"en","target_lang":"zh","provider":"mymemory","allow_remote":true}
+```
+
+The C++ `TranslationService` validates input, consent, provider, extension and
+language pair before sending requests to the local worker. A second validation
+happens in the Python translation adapter. Cloud traffic is prohibited unless
+`allow_remote=true`; no document names or paths are included in external
+provider requests. Existing `run` actions and `capabilities.actions` semantics
+remain unchanged. Model and credentials are not persisted in diagnostic logs.
+
 ## Desktop activation protocol v1
 
 The desktop application uses a local, per-user Qt IPC endpoint for single-instance activation.
