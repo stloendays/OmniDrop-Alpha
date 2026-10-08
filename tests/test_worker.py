@@ -23,6 +23,8 @@ class WorkerTests(unittest.TestCase):
         self.assertIn("text.format_xml", result["actions"])
         self.assertIn("archive.extract", result["actions"])
         if worker.pillow_available():
+            self.assertIn("image.resize_half", result["actions"])
+        if worker.pillow_available():
             self.assertIn("image.rotate_clockwise", result["actions"])
             self.assertIn("image.rotate_counterclockwise", result["actions"])
         if worker.pypdf_available():
@@ -158,6 +160,121 @@ class WorkerTests(unittest.TestCase):
 
             result = worker.handle(
                 {"command": "run", "action_id": "image.rotate_clockwise", "path": str(path)}
+            )
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["error"]["code"], "image_error")
+
+    @unittest.skipUnless(worker.pillow_available(), "Pillow is not installed")
+    def test_resize_half_preserves_source_and_alpha(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "alpha.png"
+            Image.new("RGBA", (7, 5), (10, 20, 30, 40)).save(path)
+            original_bytes = path.read_bytes()
+
+            request = {"command": "run", "action_id": "image.resize_half", "path": str(path)}
+            result = worker.handle(request)
+            self.assertTrue(result["ok"], result)
+            self.assertEqual(path.read_bytes(), original_bytes)
+            self.assertEqual(
+                (result["original_width"], result["original_height"]), (7, 5)
+            )
+            self.assertEqual((result["output_width"], result["output_height"]), (4, 3))
+            self.assertNotEqual(Path(result["output_path"]), path)
+
+            with Image.open(result["output_path"]) as resized:
+                self.assertEqual(resized.size, (4, 3))
+                self.assertEqual(resized.mode, "RGBA")
+                pixel = resized.getpixel((1, 1))
+                # Pillow uses premultiplied alpha; integer rounding may shift RGB
+                # by a few levels even for uniform semi-transparent pixels.
+                self.assertEqual(pixel[3], 40)
+                self.assertTrue(
+                    all(abs(actual - expected) <= 3
+                        for actual, expected in zip(pixel[:3], (10, 20, 30))),
+                    pixel,
+                )
+
+            second = worker.handle(request)
+            self.assertTrue(second["ok"], second)
+            self.assertNotEqual(second["output_path"], result["output_path"])
+            self.assertEqual(path.read_bytes(), original_bytes)
+
+    @unittest.skipUnless(worker.pillow_available(), "Pillow is not installed")
+    def test_resize_half_paletted_png_preserves_transparency(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "indexed.png"
+            palette_image = Image.new("P", (8, 8))
+            palette_image.putpalette([0, 0, 0, 255, 0, 0] + [0] * 762)
+            palette_image.putdata([0 if x < 4 else 1 for _ in range(8) for x in range(8)])
+            palette_image.save(path, transparency=0)
+
+            result = worker.handle(
+                {"command": "run", "action_id": "image.resize_half", "path": str(path)}
+            )
+            self.assertTrue(result["ok"], result)
+            with Image.open(result["output_path"]) as image:
+                self.assertEqual(image.size, (4, 4))
+                self.assertEqual(image.mode, "RGBA")
+                self.assertEqual(image.getpixel((0, 2))[3], 0)
+                self.assertEqual(image.getpixel((3, 2))[3], 255)
+
+    @unittest.skipUnless(worker.pillow_available(), "Pillow is not installed")
+    def test_resize_half_normalizes_exif_orientation(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "oriented.jpg"
+            image = Image.new("RGB", (4, 6), (120, 80, 20))
+            exif = Image.Exif()
+            exif[274] = 6  # Display 90 degrees clockwise relative to stored pixels.
+            exif[315] = "OmniDrop test"
+            image.save(path, exif=exif.tobytes())
+            original_bytes = path.read_bytes()
+
+            result = worker.handle(
+                {"command": "run", "action_id": "image.resize_half", "path": str(path)}
+            )
+            self.assertTrue(result["ok"], result)
+            self.assertEqual(
+                (result["original_width"], result["original_height"]), (6, 4)
+            )
+            self.assertEqual((result["output_width"], result["output_height"]), (3, 2))
+            self.assertEqual(path.read_bytes(), original_bytes)
+
+            with Image.open(result["output_path"]) as resized:
+                self.assertEqual(resized.size, (3, 2))
+                self.assertNotIn(resized.getexif().get(274), (6, 8))
+                self.assertEqual(resized.getexif().get(315), "OmniDrop test")
+
+    @unittest.skipUnless(worker.pillow_available(), "Pillow is not installed")
+    def test_resize_half_rejects_multiframe_and_unsupported_formats(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            path = directory / "multipage.tiff"
+            first = Image.new("RGB", (8, 8), "red")
+            second = Image.new("RGB", (8, 8), "blue")
+            first.save(path, save_all=True, append_images=[second])
+            before = path.read_bytes()
+
+            result = worker.handle(
+                {"command": "run", "action_id": "image.resize_half", "path": str(path)}
+            )
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["error"]["code"], "image_error")
+            self.assertIn("Multi-frame", result["error"]["message"])
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(list(directory.glob("multipage.half*")), [])
+
+            svg = directory / "vector.svg"
+            svg.write_text("<svg/>", encoding="utf-8")
+            result = worker.handle(
+                {"command": "run", "action_id": "image.resize_half", "path": str(svg)}
             )
             self.assertFalse(result["ok"])
             self.assertEqual(result["error"]["code"], "image_error")

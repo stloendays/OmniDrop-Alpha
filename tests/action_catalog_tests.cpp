@@ -1,3 +1,8 @@
+// Keep contract assertions active in Release-mode CI builds.
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
+
 #include "app/action_catalog.hpp"
 #include "app/batch_job.hpp"
 #include "app/omnidrop_service.hpp"
@@ -31,12 +36,16 @@ int main(int argc, char** argv) {
   const auto imageActions = catalog.recommendedActions(FileKind::Image);
   bool hasRotateClockwise = false;
   bool hasRotateCounterclockwise = false;
+  bool hasResizeHalf = false;
   for (const auto& action : imageActions) {
     hasRotateClockwise |= action.id == "image.rotate_clockwise";
     hasRotateCounterclockwise |= action.id == "image.rotate_counterclockwise";
+    hasResizeHalf |= action.id == "image.resize_half" &&
+                     action.scope == ActionScope::PerFile;
   }
   assert(hasRotateClockwise);
   assert(hasRotateCounterclockwise);
+  assert(hasResizeHalf);
 
   const auto pdf = catalog.recommendedActions(FileKind::Pdf);
   bool hasExtract = false;
@@ -62,6 +71,7 @@ int main(int argc, char** argv) {
       "image.convert_webp",
       "image.rotate_clockwise",
       "image.rotate_counterclockwise",
+      "image.resize_half",
       "image.remove_metadata",
       "pdf.extract_text",
       "pdf.split",
@@ -72,18 +82,29 @@ int main(int argc, char** argv) {
 
   const auto png = service.inspect("a.png", runtimeActions);
   bool pngRotateAvailable = false;
+  bool pngResizeAvailable = false;
   for (const auto& action : png.actions) {
     if (action.id == "image.rotate_clockwise") pngRotateAvailable = action.available;
+    if (action.id == "image.resize_half") pngResizeAvailable = action.available;
   }
   assert(pngRotateAvailable);
+  assert(pngResizeAvailable);
 
   const auto svg = service.inspect("a.svg", runtimeActions);
   for (const auto& action : svg.actions) {
     if (action.id == "image.rotate_clockwise" ||
-        action.id == "image.rotate_counterclockwise") {
+        action.id == "image.rotate_counterclockwise" ||
+        action.id == "image.resize_half") {
       assert(!action.available);
     }
   }
+
+  const auto images = service.inspectMany({"a.png", "b.jpeg"}, runtimeActions);
+  bool batchResizeAvailable = false;
+  for (const auto& action : images.actions) {
+    if (action.id == "image.resize_half") batchResizeAvailable = action.available;
+  }
+  assert(batchResizeAvailable);
 
   const auto twoText = service.inspectMany({"a.txt", "b.md"}, runtimeActions);
   bool batchHasNormalize = false;

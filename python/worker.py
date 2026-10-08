@@ -190,6 +190,63 @@ def image_rotate(path: Path, clockwise: bool) -> Path:
         return output
 
 
+def image_resize_half(path: Path) -> tuple[Path, tuple[int, int], tuple[int, int]]:
+    """Create a half-resolution copy using display-oriented pixels and Lanczos filtering."""
+    from PIL import Image, ImageOps
+
+    supported = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
+    if path.suffix.lower() not in supported:
+        raise ValueError("Half-size resizing supports PNG, JPEG, WebP, BMP, and TIFF images.")
+
+    with Image.open(path) as source:
+        # Resizing only the first frame would silently destroy animation/pages.
+        if getattr(source, "n_frames", 1) > 1:
+            raise ValueError("Multi-frame image resizing is not supported yet.")
+
+        # EXIF orientation must be applied before calculating displayed dimensions.
+        image = ImageOps.exif_transpose(source)
+        image.load()
+        before_size = image.size
+        after_size = tuple(max(1, (dimension + 1) // 2) for dimension in before_size)
+
+        # Pillow forces nearest-neighbor for palette/bilevel images regardless of
+        # the requested filter. Convert first to actually honor LANCZOS, while
+        # preserving transparency in paletted PNGs.
+        if image.mode == "P":
+            image = image.convert("RGBA" if "transparency" in image.info else "RGB")
+        elif image.mode == "1":
+            image = image.convert("L")
+
+        resized = image.resize(after_size, resample=Image.Resampling.LANCZOS)
+        fmt = (source.format or path.suffix.lstrip(".")).upper()
+        save_args: dict[str, Any] = {}
+
+        icc_profile = source.info.get("icc_profile")
+        if icc_profile and fmt in {"JPEG", "JPG", "PNG", "WEBP", "TIFF"}:
+            save_args["icc_profile"] = icc_profile
+
+        if fmt in {"JPEG", "JPG", "PNG", "WEBP", "TIFF"}:
+            exif = image.getexif()
+            if exif:
+                exif.pop(274, None)  # Never preserve a stale orientation tag.
+                if exif:
+                    save_args["exif"] = exif.tobytes()
+
+        if fmt in {"JPEG", "JPG"}:
+            if resized.mode not in {"RGB", "L"}:
+                resized = resized.convert("RGB")
+            fmt = "JPEG"
+            save_args.update(quality=95, optimize=True)
+        elif fmt == "PNG":
+            save_args["optimize"] = True
+        elif fmt == "WEBP":
+            save_args.update(quality=95, method=6)
+
+        output = unique_output_path(path, "half")
+        resized.save(output, format=fmt, **save_args)
+        return output, before_size, resized.size
+
+
 def image_remove_metadata(path: Path) -> Path:
     from PIL import Image, ImageOps
 
@@ -351,6 +408,7 @@ def capabilities() -> list[str]:
                 "image.convert_webp",
                 "image.rotate_clockwise",
                 "image.rotate_counterclockwise",
+                "image.resize_half",
                 "image.remove_metadata",
             ]
         )
@@ -486,11 +544,24 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
             "image.convert_webp",
             "image.rotate_clockwise",
             "image.rotate_counterclockwise",
+            "image.resize_half",
             "image.remove_metadata",
         }:
             if not pillow_available():
                 return fail("Pillow is not installed for image processing.", "missing_dependency")
             try:
+                if action_id == "image.resize_half":
+                    output, original_size, output_size = image_resize_half(path)
+                    return ok(
+                        action_id=action_id,
+                        path=str(path),
+                        output_path=str(output),
+                        original_width=original_size[0],
+                        original_height=original_size[1],
+                        output_width=output_size[0],
+                        output_height=output_size[1],
+                    )
+
                 operation = {
                     "image.compress": image_compress,
                     "image.convert_webp": image_convert_webp,

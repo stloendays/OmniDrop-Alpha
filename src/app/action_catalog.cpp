@@ -37,6 +37,7 @@ QList<ActionDescriptor> ActionCatalog::recommendedActions(FileKind kind) const {
           action("image.convert_webp", "Convert to WebP", "Create a web-friendly WebP copy.", 20, true, "python-pillow"),
           action("image.rotate_clockwise", "Rotate 90° clockwise", "Create a copy rotated 90 degrees clockwise.", 30, true, "python-pillow"),
           action("image.rotate_counterclockwise", "Rotate 90° counterclockwise", "Create a copy rotated 90 degrees counterclockwise.", 31, true, "python-pillow"),
+          action("image.resize_half", "Resize to 50%", "Create a half-width and half-height copy with high-quality resampling.", 35, true, "python-pillow"),
           action("image.remove_metadata", "Remove metadata", "Strip EXIF and other embedded metadata.", 40, true, "python-pillow"),
           action("image.ocr", "Extract text (OCR)", "Recognize text contained in the image.", 50),
       };
