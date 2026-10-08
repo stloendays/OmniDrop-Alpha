@@ -33,6 +33,7 @@ target_compile_definitions(omnidrop_core PUBLIC OMNIDROP_VERSION="${PROJECT_VERS
 add_library(omnidrop_adapters
   src/adapters/diagnostics_service.cpp
   src/adapters/python_worker_client.cpp
+  src/app/translation_service.cpp
   src/adapters/recent_files_store.cpp
   src/adapters/action_history_store.cpp
 )
@@ -50,6 +51,7 @@ if(OMNIDROP_BUILD_GUI)
   set(OMNIDROP_GUI_SOURCES
     src/gui/main.cpp
     src/gui/main_window.cpp
+    src/gui/translation_dialog.cpp
     src/gui/drop_zone.cpp
     assets/resources.qrc
   )
@@ -94,6 +96,10 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   add_executable(omnidrop_diagnostics_tests tests/diagnostics_tests.cpp)
   target_link_libraries(omnidrop_diagnostics_tests PRIVATE omnidrop_core Qt6::Core)
   add_test(NAME omnidrop_diagnostics_tests COMMAND omnidrop_diagnostics_tests)
+
+  add_executable(omnidrop_translation_service_tests tests/translation_service_tests.cpp)
+  target_link_libraries(omnidrop_translation_service_tests PRIVATE omnidrop_adapters Qt6::Core)
+  add_test(NAME omnidrop_translation_service_tests COMMAND omnidrop_translation_service_tests)
 
   if(TARGET omnidrop_cli)
     add_test(NAME omnidrop_cli_version COMMAND omnidrop_cli --version)
