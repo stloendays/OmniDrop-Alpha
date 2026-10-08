@@ -115,6 +115,16 @@ schema_version, event, run_id, node_id, completed_operations,
 total_operations, and status. File paths are not included in progress
 frames. Final results still list created output paths.
 
+## Durable workflow jobs
+
+Workflow v2.3 adds a bounded local job queue with cross-process locks and
+atomic state updates. Jobs can be created in the Qt builder and inspected
+or retried after restarting the application. A retry reruns the **entire**
+workflow from the original inputs and leaves earlier output files intact.
+
+See [Workflow Jobs](WORKFLOW_JOBS.md) for state transitions, privacy,
+persistent storage paths and CLI job commands.
+
 ## Next iterations
 
 - Persistable node positions, keyboard-accessible link editing and canvas zoom
