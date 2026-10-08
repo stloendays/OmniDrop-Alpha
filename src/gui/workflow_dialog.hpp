@@ -2,6 +2,7 @@
 
 #include "adapters/python_worker_client.hpp"
 #include "app/workflow_service.hpp"
+#include "app/workflow_job_service.hpp"
 
 #include <QDialog>
 #include <QJsonObject>
@@ -40,6 +41,10 @@ class WorkflowDialog final : public QDialog {
   void convertToGraph();
   void refreshGraph();
   void refreshGraphSteps();
+  void queueWorkflow();
+  void refreshJobs();
+  void executeSelectedJob();
+  void removeSelectedJob();
   void moveStep(int offset);
   void applyTemplate(int preset);
   void loadWorkflow();
@@ -55,6 +60,7 @@ class WorkflowDialog final : public QDialog {
   void showStatus(const QString& message, bool error = false);
 
   WorkflowService service_;
+  WorkflowJobService jobs_;
   QStringList inputs_;
   QJsonObject loadedDefinition_;
   bool graphMode_{false};
@@ -68,8 +74,13 @@ class WorkflowDialog final : public QDialog {
   QListWidget* stepsList_{nullptr};
   QPlainTextEdit* outputView_{nullptr};
   WorkflowGraphView* graphView_{nullptr};
+  QListWidget* jobsList_{nullptr};
   QTabWidget* rightTabs_{nullptr};
   QPushButton* graphEditButton_{nullptr};
+  QPushButton* queueButton_{nullptr};
+  QPushButton* refreshJobsButton_{nullptr};
+  QPushButton* executeJobButton_{nullptr};
+  QPushButton* removeJobButton_{nullptr};
 
   QPushButton* addButton_{nullptr};
   QPushButton* removeButton_{nullptr};

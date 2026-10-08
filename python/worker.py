@@ -650,49 +650,30 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_stream(request: dict[str, Any]) -> int:
-    """One newline-delimited request, NDJSON events, one final result frame.
+    """Emit NDJSON events, then read one control reply at each safe checkpoint.
 
-    The control reader consumes optional {"command":"workflow.cancel"} frames
-    on stdin. A stop is honored *between* actions to protect output integrity.
+    Only streaming clients that opt into flow_control need to acknowledge
+    each completed action. No background reader thread competes for stdin;
+    this removes a rare lost-acknowledgement race for very fast actions.
     """
-    import queue
-    import threading
-
-    cancel = threading.Event()
-    checkpoint = queue.Queue(maxsize=1)
     flow_control = request.get("flow_control") is True
-
-    def controls() -> None:
-        for line in sys.stdin:
-            try:
-                message = json.loads(line)
-            except (ValueError, TypeError):
-                continue
-            if not isinstance(message, dict):
-                continue
-            if message.get("command") == "workflow.cancel":
-                cancel.set()
-                return
-            if message.get("command") == "workflow.continue" and flow_control:
-                try:
-                    checkpoint.put_nowait(True)
-                except queue.Full:
-                    pass
-
-    threading.Thread(target=controls, daemon=True).start()
+    cancelled = False
 
     def emit(payload: dict[str, Any]) -> None:
+        nonlocal cancelled
         sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
         sys.stdout.flush()
         if flow_control and payload.get("event") == "workflow.action_completed":
-            # Every completed action is a synchronization point. The host
-            # chooses continue/cancel before the next file operation begins.
-            # A lost host cannot leave a model worker blocking indefinitely.
-            if not cancel.is_set():
-                try:
-                    checkpoint.get(timeout=15)
-                except queue.Empty:
-                    cancel.set()
+            # Blocking on the host acknowledgement is intentional. Input is
+            # consumed only AFTER the active write/transform has completed.
+            # If the host closes its pipe, EOF requests a safe stop.
+            frame = sys.stdin.readline()
+            try:
+                control = json.loads(frame)
+            except (ValueError, TypeError):
+                control = None
+            if not isinstance(control, dict) or control.get("command") != "workflow.continue":
+                cancelled = True
 
     try:
         result = workflow_run(
@@ -701,7 +682,7 @@ def _run_stream(request: dict[str, Any]) -> int:
             capabilities(),
             handle,
             on_event=emit,
-            should_stop=cancel.is_set,
+            should_stop=lambda: cancelled,
         )
     except WorkflowError as exc:
         result = fail(str(exc), exc.code)

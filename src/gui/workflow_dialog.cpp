@@ -3,6 +3,7 @@
 #include "app/action_catalog.hpp"
 #include "gui/workflow_graph_view.hpp"
 
+#include <QColor>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QFileDialog>
@@ -146,6 +147,27 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
       "Preview checks dependencies without writing files.\n"
       "Run shows completed nodes, output paths and partial results.");
   rightTabs_->addTab(outputView_, "Execution results");
+  auto* jobsPanel = new QWidget(rightTabs_);
+  auto* jobsLayout = new QVBoxLayout(jobsPanel);
+  jobsLayout->setContentsMargins(10, 8, 10, 8);
+  auto* jobsHint = new QLabel(
+      "Jobs are stored locally and survive restarts. Retry reruns all steps with new outputs.",
+      jobsPanel);
+  jobsHint->setObjectName("muted");
+  jobsHint->setWordWrap(true);
+  jobsLayout->addWidget(jobsHint);
+  jobsList_ = new QListWidget(jobsPanel);
+  jobsList_->setSelectionMode(QAbstractItemView::SingleSelection);
+  jobsLayout->addWidget(jobsList_, 1);
+  auto* jobControls = new QHBoxLayout;
+  refreshJobsButton_ = new QPushButton("Refresh", jobsPanel);
+  executeJobButton_ = new QPushButton("Run / Retry", jobsPanel);
+  removeJobButton_ = new QPushButton("Remove record", jobsPanel);
+  jobControls->addWidget(refreshJobsButton_);
+  jobControls->addWidget(executeJobButton_);
+  jobControls->addWidget(removeJobButton_);
+  jobsLayout->addLayout(jobControls);
+  rightTabs_->addTab(jobsPanel, "Jobs");
   rightLayout->addWidget(rightTabs_, 1);
   split->addWidget(left);
   split->addWidget(right);
@@ -165,6 +187,8 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
 
   auto* footer = new QHBoxLayout;
   auto* cancel = new QPushButton("Close", this);
+  queueButton_ = new QPushButton("Add to Jobs", this);
+  queueButton_->setToolTip("Queue the current workflow and file selection for later execution.");
   planButton_ = new QPushButton("Preview plan", this);
   stopButton_ = new QPushButton("Stop after current file", this);
   stopButton_->setEnabled(false);
@@ -172,6 +196,7 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
   runButton_ = new QPushButton("Run workflow", this);
   footer->addStretch();
   footer->addWidget(cancel);
+  footer->addWidget(queueButton_);
   footer->addWidget(planButton_);
   footer->addWidget(stopButton_);
   footer->addWidget(runButton_);
@@ -228,6 +253,11 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
           this, &WorkflowDialog::applyTemplate);
   connect(stepsList_, &QListWidget::itemSelectionChanged,
           this, &WorkflowDialog::refreshButtons);
+  connect(queueButton_, &QPushButton::clicked, this, &WorkflowDialog::queueWorkflow);
+  connect(refreshJobsButton_, &QPushButton::clicked, this, &WorkflowDialog::refreshJobs);
+  connect(executeJobButton_, &QPushButton::clicked, this, &WorkflowDialog::executeSelectedJob);
+  connect(removeJobButton_, &QPushButton::clicked, this, &WorkflowDialog::removeSelectedJob);
+  connect(jobsList_, &QListWidget::itemSelectionChanged, this, &WorkflowDialog::refreshButtons);
   connect(planButton_, &QPushButton::clicked, this, [this] { begin(false); });
   connect(runButton_, &QPushButton::clicked, this, [this] { begin(true); });
   connect(stopButton_, &QPushButton::clicked, this, [this] {
@@ -241,6 +271,7 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
   refreshInputs();
   refreshButtons();
   refreshGraph();
+  refreshJobs();
 }
 
 void WorkflowDialog::refreshInputs() {
@@ -478,6 +509,139 @@ void WorkflowDialog::saveWorkflow() {
   showStatus(error.isEmpty() ? "Saved: " + target : error, !error.isEmpty());
 }
 
+void WorkflowDialog::queueWorkflow() {
+  if (busy_ || inputs_.isEmpty() || stepsList_->count() == 0) return;
+  busy_ = true;
+  refreshButtons();
+  showStatus("Validating and saving the workflow job...");
+
+  const auto document = definition();
+  const auto paths = inputs_;
+  auto* watcher = new QFutureWatcher<WorkerResult>(this);
+  connect(watcher, &QFutureWatcher<WorkerResult>::finished, this, [this, watcher] {
+    const auto result = watcher->result();
+    watcher->deleteLater();
+    busy_ = false;
+    refreshJobs();
+    refreshButtons();
+    if (!result.ok) {
+      showStatus("Could not queue workflow: " + result.error, true);
+      return;
+    }
+    rightTabs_->setCurrentIndex(2);
+    showStatus("Workflow saved to Jobs. Run it now or after restarting OmniDrop.");
+  });
+  watcher->setFuture(QtConcurrent::run([document, paths] {
+    WorkflowJobService jobs;
+    return jobs.enqueue(document, paths);
+  }));
+}
+
+void WorkflowDialog::refreshJobs() {
+  const QString selectedId = jobsList_->currentItem()
+      ? jobsList_->currentItem()->data(Qt::UserRole).toString() : QString{};
+  const auto response = jobs_.listJobs();
+  if (!response.ok) {
+    showStatus("Workflow job history unavailable: " + response.error, true);
+    return;
+  }
+  const auto data = QJsonDocument::fromJson(response.output.toUtf8()).object();
+  const auto jobs = data.value("jobs").toArray();
+  jobsList_->clear();
+  int restoreRow = -1;
+  for (const auto& raw : jobs) {
+    const auto entry = raw.toObject();
+    const auto state = entry.value("status").toString();
+    const auto id = entry.value("id").toString();
+    const QString title = QString("%1  |  %2  |  %3/%4  |  attempts: %5")
+        .arg(entry.value("name").toString(), state)
+        .arg(entry.value("completed_operations").toInt())
+        .arg(entry.value("total_operations").toInt())
+        .arg(entry.value("attempts").toInt());
+    auto* item = new QListWidgetItem(title);
+    item->setData(Qt::UserRole, id);
+    item->setData(Qt::UserRole + 1, state);
+    item->setToolTip(QString("%1\n%2\n%3")
+        .arg(id, entry.value("updated_at").toString(),
+             entry.value("last_error").toString()));
+    if (state == "failed" || state == "interrupted") {
+      item->setForeground(QColor("#8f3434"));
+    }
+    if (id == selectedId) restoreRow = jobsList_->count();
+    jobsList_->addItem(item);
+  }
+  if (restoreRow >= 0) jobsList_->setCurrentRow(restoreRow);
+  else if (jobsList_->count() > 0) jobsList_->setCurrentRow(0);
+  refreshButtons();
+}
+
+void WorkflowDialog::executeSelectedJob() {
+  if (busy_ || !jobsList_->currentItem()) return;
+  const QString id = jobsList_->currentItem()->data(Qt::UserRole).toString();
+  busy_ = true;
+  stopRequested_ = std::make_shared<std::atomic_bool>(false);
+  runProgress_->setVisible(true);
+  runProgress_->setRange(0, 0);
+  stopButton_->show();
+  outputView_->clear();
+  rightTabs_->setCurrentWidget(outputView_);
+  refreshButtons();
+  showStatus("Running queued workflow...");
+
+  QPointer<WorkflowDialog> guard(this);
+  const auto cancellation = stopRequested_;
+  auto* watcher = new QFutureWatcher<WorkerResult>(this);
+  connect(watcher, &QFutureWatcher<WorkerResult>::finished, this, [this, watcher] {
+    const auto result = watcher->result();
+    watcher->deleteLater();
+    finish(true, result);
+    refreshJobs();
+  });
+  watcher->setFuture(QtConcurrent::run([id, cancellation, guard] {
+    WorkflowJobService service;
+    return service.execute(
+        id,
+        [guard](const QJsonObject& event) {
+          if (!guard) return;
+          QMetaObject::invokeMethod(
+              guard.data(),
+              [guard, event] {
+                if (!guard || !guard->busy_) return;
+                const int count = event.value("completed_operations").toInt();
+                const int total = event.value("total_operations").toInt();
+                if (total > 0) {
+                  guard->runProgress_->setRange(0, total);
+                  guard->runProgress_->setValue(count);
+                  guard->runProgress_->setFormat(QString("%1 / %2").arg(count).arg(total));
+                }
+                if (!event.value("node_id").toString().isEmpty()) {
+                  guard->showStatus(QString("Job: %1  (%2/%3)")
+                      .arg(event.value("node_id").toString())
+                      .arg(count)
+                      .arg(total));
+                }
+              },
+              Qt::QueuedConnection);
+        },
+        cancellation.get());
+  }));
+}
+
+void WorkflowDialog::removeSelectedJob() {
+  if (busy_ || !jobsList_->currentItem()) return;
+  const QString id = jobsList_->currentItem()->data(Qt::UserRole).toString();
+  if (QMessageBox::question(
+          this, "Remove saved job",
+          "Remove this job from local history? Generated output files will be kept.",
+          QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) {
+    return;
+  }
+  const auto result = jobs_.remove(id);
+  showStatus(result.ok ? "Job history record removed; outputs kept."
+                       : "Cannot remove job: " + result.error, !result.ok);
+  refreshJobs();
+}
+
 void WorkflowDialog::refreshButtons() {
   const bool editing = !busy_;
   const bool linear = !graphMode_ && !busy_;
@@ -499,6 +663,14 @@ void WorkflowDialog::refreshButtons() {
   newButton_->setEnabled(!busy_);
   planButton_->setEnabled(editing && stepsList_->count() > 0 && !inputs_.isEmpty());
   runButton_->setEnabled(planButton_->isEnabled());
+  queueButton_->setEnabled(planButton_->isEnabled());
+  const auto selectedJob = jobsList_->currentItem();
+  const QString state = selectedJob ? selectedJob->data(Qt::UserRole + 1).toString() : QString{};
+  executeJobButton_->setEnabled(editing && selectedJob &&
+      (state == "queued" || state == "failed" ||
+       state == "stopped" || state == "interrupted"));
+  removeJobButton_->setEnabled(editing && selectedJob && state != "running");
+  refreshJobsButton_->setEnabled(editing);
   if (stopButton_) stopButton_->setEnabled(busy_ && stopRequested_ &&
                                           !stopRequested_->load(std::memory_order_acquire));
 }

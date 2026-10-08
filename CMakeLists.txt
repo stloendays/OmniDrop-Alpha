@@ -35,6 +35,7 @@ add_library(omnidrop_adapters
   src/adapters/python_worker_client.cpp
   src/app/translation_service.cpp
   src/app/workflow_service.cpp
+  src/app/workflow_job_service.cpp
   src/adapters/recent_files_store.cpp
   src/adapters/action_history_store.cpp
 )
@@ -109,10 +110,20 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   target_link_libraries(omnidrop_workflow_service_tests PRIVATE omnidrop_adapters Qt6::Core)
   add_test(NAME omnidrop_workflow_service_tests COMMAND omnidrop_workflow_service_tests)
 
+  add_executable(omnidrop_workflow_job_tests tests/workflow_job_service_tests.cpp)
+  target_link_libraries(omnidrop_workflow_job_tests PRIVATE omnidrop_adapters Qt6::Core)
+  add_test(NAME omnidrop_workflow_job_tests COMMAND omnidrop_workflow_job_tests)
+
   if(TARGET omnidrop_cli)
     add_test(NAME omnidrop_cli_version COMMAND omnidrop_cli --version)
     set_tests_properties(omnidrop_cli_version PROPERTIES
       PASS_REGULAR_EXPRESSION "^${PROJECT_VERSION}"
+    )
+
+    add_test(NAME omnidrop_cli_workflow_jobs COMMAND omnidrop_cli workflow jobs)
+    set_tests_properties(omnidrop_cli_workflow_jobs PROPERTIES
+      PASS_REGULAR_EXPRESSION "schema_version"
+      ENVIRONMENT "OMNIDROP_WORKFLOW_JOBS=${CMAKE_CURRENT_BINARY_DIR}/ci-jobs/jobs.json"
     )
 
     add_test(NAME omnidrop_cli_workflow_validate
