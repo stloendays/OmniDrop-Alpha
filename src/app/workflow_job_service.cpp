@@ -364,7 +364,7 @@ WorkerResult WorkflowJobService::execute(
       {"last_error", response.ok ? QString{} : response.error},
       {"completed_operations", report.value("completed_operations")},
       {"total_operations", report.value("total_operations")},
-  }, makeEvent("job." + state, selected.value("attempts").toInt(),
+  }, makeEvent(QStringLiteral("job.") + state, selected.value("attempts").toInt(),
                {}, report.value("completed_operations").toInt(-1),
                report.value("total_operations").toInt(-1)));
   return response;
