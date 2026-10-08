@@ -17,6 +17,7 @@ alias when semantics genuinely change.
 | `image.convert_webp` | image | implemented | Pillow | new `.webp` sibling file |
 | `image.rotate_clockwise` | PNG/JPEG/WebP/BMP/TIFF | implemented | Pillow | new sibling file rotated 90° clockwise |
 | `image.rotate_counterclockwise` | PNG/JPEG/WebP/BMP/TIFF | implemented | Pillow | new sibling file rotated 90° counterclockwise |
+| `image.resize_half` | PNG/JPEG/WebP/BMP/TIFF | implemented | Pillow | new `.half` sibling file; width/height halved (rounded up); EXIF orientation normalized |
 | `image.remove_metadata` | image | implemented | Pillow | new sibling file |
 | `image.ocr` | image | planned | OCR adapter | TBD |
 | `pdf.compress` | PDF | planned | PDF adapter | TBD |
@@ -33,6 +34,16 @@ alias when semantics genuinely change.
 | `audio.compress` | audio | planned | FFmpeg | TBD |
 | `archive.inspect` | ZIP | implemented | Python stdlib | new inventory `.txt` file |
 | `archive.extract` | ZIP | implemented | Python stdlib | new output directory |
+
+### Image resizing semantics
+
+`image.resize_half` uses high-quality Lanczos resampling and creates a separate file, never
+overwriting the source. Dimensions are computed after normalizing EXIF orientation, then each
+dimension is halved with rounding up and a minimum of one pixel. Where supported, ICC color
+profile and non-orientation EXIF tags are copied; orientation is embedded in the pixel order.
+The worker returns `original_width`, `original_height`, `output_width`, and `output_height`
+in addition to the usual `output_path`. Multi-frame/animated inputs are rejected rather than
+silently flattening frames. The preset is fixed; the worker protocol remains v1.
 
 ## Action scope
 
