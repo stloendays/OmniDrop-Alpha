@@ -71,6 +71,23 @@ Next:
 - image-to-PDF and PDF-to-image;
 - size optimization with visible quality trade-offs.
 
+### Translation workspace
+
+Implemented in the translation-provider v1 PR:
+
+- text and subtitle translation with offline Argos or explicitly approved online APIs;
+- MyMemory, LibreTranslate and DeepL API Free providers;
+- shared C++ translation service, GUI dialog and CLI command;
+- non-destructive translated copies and privacy-bounded network requests.
+
+Next:
+
+- model-pack installation/verification UX and offline-language discovery;
+- document-aware DOCX/PDF translation preserving layout;
+- side-by-side original/translation preview;
+- translation memory and terminology glossary;
+- voice narration of translated documents.
+
 ### Text / developer files
 
 Implemented:
