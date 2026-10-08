@@ -15,10 +15,6 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -27,6 +23,12 @@ jobs:
           target: desktop
           arch: win64_msvc2022_64
           cache: true
+      # Qt's installer uses its own setup-python, which otherwise silently
+      # shadows the cp313 wheel builder with an incompatible Python version.
+      - name: Set up Python 3.13 after Qt bootstrap
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build
