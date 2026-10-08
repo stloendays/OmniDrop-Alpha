@@ -201,10 +201,27 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
   connect(addButton_, &QPushButton::clicked, this, [this] {
     addStep(actionCombo_->currentData().toString());
   });
-  connect(removeButton_, &QPushButton::clicked, this, [this] {
-    delete stepsList_->takeItem(stepsList_->currentRow());
-    refreshButtons();
-  });
+  connect(removeButton_, &QPushButton::clicked, this, &WorkflowDialog::removeStep);
+  connect(graphEditButton_, &QPushButton::clicked, this, &WorkflowDialog::convertToGraph);
+  connect(graphView_, &WorkflowGraphView::editRejected, this,
+          [this](const QString& message) { showStatus(message, true); });
+  connect(graphView_, &WorkflowGraphView::workflowChanged, this,
+          [this](const QJsonObject& document) {
+            if (busy_) return;
+            loadedDefinition_ = document;
+            graphMode_ = true;
+            refreshGraphSteps();
+            showStatus("Connection updated. Preview formats before running.");
+          });
+  connect(graphView_, &WorkflowGraphView::nodeSelected, this,
+          [this](const QString& nodeId) {
+            for (int i = 0; i < stepsList_->count(); ++i) {
+              if (stepsList_->item(i)->data(Qt::UserRole + 1).toString() == nodeId) {
+                stepsList_->setCurrentRow(i);
+                break;
+              }
+            }
+          });
   connect(upButton_, &QPushButton::clicked, this, [this] { moveStep(-1); });
   connect(downButton_, &QPushButton::clicked, this, [this] { moveStep(1); });
   connect(templateCombo_, qOverload<int>(&QComboBox::currentIndexChanged),
@@ -223,6 +240,7 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
 
   refreshInputs();
   refreshButtons();
+  refreshGraph();
 }
 
 void WorkflowDialog::refreshInputs() {
@@ -238,7 +256,7 @@ void WorkflowDialog::refreshInputs() {
 }
 
 void WorkflowDialog::addStep(const QString& actionId) {
-  if (readOnlyGraph_ || busy_ || actionId.isEmpty()) return;
+  if (graphMode_ || busy_ || actionId.isEmpty()) return;
   auto* item = new QListWidgetItem(
       QString("%1. %2").arg(stepsList_->count() + 1).arg(actionId));
   item->setData(Qt::UserRole, actionId);
@@ -248,7 +266,7 @@ void WorkflowDialog::addStep(const QString& actionId) {
 }
 
 void WorkflowDialog::moveStep(int offset) {
-  if (readOnlyGraph_ || busy_) return;
+  if (graphMode_ || busy_) return;
   const auto current = stepsList_->currentRow();
   const auto destination = current + offset;
   if (current < 0 || destination < 0 || destination >= stepsList_->count()) return;
@@ -286,7 +304,7 @@ void WorkflowDialog::applyTemplate(int preset) {
 void WorkflowDialog::newWorkflow() {
   if (busy_) return;
   loadedDefinition_ = {};
-  readOnlyGraph_ = false;
+  graphMode_ = false;
   nameEdit_->setEnabled(true);
   stepsList_->clear();
   nameEdit_->setText("New workflow");
@@ -307,7 +325,7 @@ void WorkflowDialog::selectInputs() {
 }
 
 QJsonObject WorkflowDialog::definition() const {
-  if (readOnlyGraph_) return loadedDefinition_;
+  if (graphMode_) return loadedDefinition_;
 
   QJsonArray nodes;
   for (int i = 0; i < stepsList_->count(); ++i) {
@@ -344,7 +362,7 @@ void WorkflowDialog::loadWorkflow() {
     return;
   }
   loadedDefinition_ = loaded.document;
-  readOnlyGraph_ = true;
+  graphMode_ = true;
   nameEdit_->setText(loadedDefinition_.value("name").toString());
   nameEdit_->setEnabled(false);
   stepsList_->clear();
@@ -377,7 +395,7 @@ void WorkflowDialog::saveWorkflow() {
 }
 
 void WorkflowDialog::refreshButtons() {
-  const bool editing = !readOnlyGraph_ && !busy_;
+  const bool editing = !graphMode_ && !busy_;
   const int index = stepsList_->currentRow();
   nameEdit_->setEnabled(editing);
   actionCombo_->setEnabled(editing);
@@ -389,9 +407,9 @@ void WorkflowDialog::refreshButtons() {
   downButton_->setEnabled(editing && index >= 0 && index + 1 < stepsList_->count());
   chooseButton_->setEnabled(!busy_);
   loadButton_->setEnabled(!busy_);
-  saveButton_->setEnabled(!busy_ && (readOnlyGraph_ || stepsList_->count() > 0));
+  saveButton_->setEnabled(!busy_ && (graphMode_ || stepsList_->count() > 0));
   newButton_->setEnabled(!busy_);
-  planButton_->setEnabled(!busy_ && (readOnlyGraph_ || stepsList_->count() > 0) && !inputs_.isEmpty());
+  planButton_->setEnabled(!busy_ && (graphMode_ || stepsList_->count() > 0) && !inputs_.isEmpty());
   runButton_->setEnabled(planButton_->isEnabled());
   if (stopButton_) stopButton_->setEnabled(busy_ && stopRequested_ &&
                                           !stopRequested_->load(std::memory_order_acquire));
