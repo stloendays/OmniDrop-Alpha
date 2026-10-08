@@ -51,7 +51,8 @@ Implemented in Workflow v1:
 Next:
 
 - visual drag-and-connect graph authoring (initial GUI editing is linear);
-- streaming job progress, cooperative stop, retry and replay;
+- streaming per-operation progress and cooperative stop: implemented in Workflow v2 phase 1;
+- failed-action retry and replay;
 - durable queue/history and verified crash recovery;
 - typed action parameters and variable propagation;
 - consent-aware cloud operations and agent/MCP gateway.
