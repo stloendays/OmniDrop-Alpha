@@ -13,6 +13,7 @@ alias when semantics genuinely change.
 | `text.deduplicate` | text/developer | implemented | Python stdlib | new sibling file |
 | `text.format_json` | JSON | implemented | Python stdlib | validated, pretty-printed sibling `.json` file |
 | `text.format_xml` | XML | implemented | Python stdlib | parsed, indented sibling `.xml` file |
+| `text.to_speech` | TXT/MD/SRT/VTT | implemented, runtime-gated | optional Piper + verified voice pack | local-only unique `.spoken.wav` sibling |
 | `image.compress` | image | implemented | Pillow | new sibling file |
 | `image.convert_webp` | image | implemented | Pillow | new `.webp` sibling file |
 | `image.rotate_clockwise` | PNG/JPEG/WebP/BMP/TIFF | implemented | Pillow | new sibling file rotated 90° clockwise |

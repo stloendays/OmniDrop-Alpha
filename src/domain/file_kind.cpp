@@ -11,7 +11,7 @@ FileKind detectFileKind(const QString& path) {
   static const QSet<QString> images{"png", "jpg", "jpeg", "webp", "bmp", "gif", "tif", "tiff", "heic", "svg"};
   static const QSet<QString> videos{"mp4", "mov", "mkv", "avi", "webm", "m4v"};
   static const QSet<QString> audio{"mp3", "wav", "flac", "aac", "m4a", "ogg", "opus"};
-  static const QSet<QString> text{"txt", "md", "rtf", "csv", "tsv", "log"};
+  static const QSet<QString> text{"txt", "md", "markdown", "srt", "vtt", "rtf", "csv", "tsv", "log"};
   static const QSet<QString> archives{"zip", "7z", "rar", "tar", "gz", "bz2", "xz"};
   static const QSet<QString> developer{"json", "yaml", "yml", "xml", "toml", "ini", "cpp", "c", "h", "hpp", "py", "js", "ts", "html", "css", "sql"};
 

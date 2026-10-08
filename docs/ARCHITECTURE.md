@@ -112,6 +112,16 @@ happens in the Python translation adapter. Cloud traffic is prohibited unless
 provider requests. Existing `run` actions and `capabilities.actions` semantics
 remain unchanged. Model and credentials are not persisted in diagnostic logs.
 
+## Verified optional offline model packs
+
+Piper voice packs are separately distributed under
+`models/voice-packs/<voice-id>/` with `manifest.json`, ONNX weights, native Piper
+configuration, upstream MODEL_CARD and NOTICE. The worker validates
+`manifest.sha256` and configuration structure before advertising
+`text.to_speech` as available. The model inference runtime must separately
+be installed; no background download, outbound request, file upload,
+or inference on startup occurs. Existing `run` per-file protocol is reused.
+
 ## Desktop activation protocol v1
 
 The desktop application uses a local, per-user Qt IPC endpoint for single-instance activation.

@@ -20,6 +20,9 @@ int main(int argc, char** argv) {
   assert(detectFileKind("photo.png") == FileKind::Image);
   assert(detectFileKind("movie.mp4") == FileKind::Video);
   assert(detectFileKind("notes.txt") == FileKind::Text);
+  assert(detectFileKind("caption.srt") == FileKind::Text);
+  assert(detectFileKind("caption.vtt") == FileKind::Text);
+  assert(detectFileKind("readme.markdown") == FileKind::Text);
   assert(detectFileKind("bundle.zip") == FileKind::Archive);
 
   ActionCatalog catalog;
@@ -32,6 +35,13 @@ int main(int argc, char** argv) {
   }
   assert(hasHash);
   assert(hasNormalize);
+  bool hasSpeech = false;
+  for (const auto& action : text) {
+    if (action.id == "text.to_speech") {
+      hasSpeech = action.scope == ActionScope::PerFile;
+    }
+  }
+  assert(hasSpeech);
 
   const auto imageActions = catalog.recommendedActions(FileKind::Image);
   bool hasRotateClockwise = false;
@@ -63,6 +73,7 @@ int main(int argc, char** argv) {
   OmniDropService service;
   const QSet<QString> runtimeActions{
       "file.sha256",
+      "text.to_speech",
       "text.normalize",
       "text.deduplicate",
       "text.format_json",
@@ -105,6 +116,17 @@ int main(int argc, char** argv) {
     if (action.id == "image.resize_half") batchResizeAvailable = action.available;
   }
   assert(batchResizeAvailable);
+
+  const auto codeInspection = service.inspect("program.cpp", runtimeActions);
+  for (const auto& action : codeInspection.actions) {
+    if (action.id == "text.to_speech") assert(!action.available);
+  }
+  const auto narrationInspection = service.inspect("chapter.txt", runtimeActions);
+  bool narratable = false;
+  for (const auto& action : narrationInspection.actions) {
+    if (action.id == "text.to_speech") narratable = action.available;
+  }
+  assert(narratable);
 
   const auto twoText = service.inspectMany({"a.txt", "b.md"}, runtimeActions);
   bool batchHasNormalize = false;

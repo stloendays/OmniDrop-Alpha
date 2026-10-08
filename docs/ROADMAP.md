@@ -117,6 +117,24 @@ Next:
 - 7z/tar/gzip support behind format-aware adapters;
 - password-protected archive UX.
 
+### Local voice generation and model packs
+
+Implemented in the optional voice-pack PR:
+
+- versioned voice-pack manifest with SHA-256 model integrity checks;
+- explicit standalone model ZIP builder and workflow artifact;
+- offline `text.to_speech` through a Piper ONNX voice and a WAV sibling output;
+- shared GUI/CLI/agent-ready action identity and batch support;
+- zero implicit downloads and no audio/text uploads;
+- tests for damaged model packs, subtitles, WAV output and packaging.
+
+Next:
+
+- one-click verified model installation and removal;
+- bundled voice-enabled Windows build after runtime redistributability and licensing verification;
+- read translated documents aloud / subtitles-to-dubbing pipelines;
+- optional lightweight audio/sound-effect models with clear model licenses.
+
 ### Media
 
 Next:
