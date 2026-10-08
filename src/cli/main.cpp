@@ -4,17 +4,25 @@
 #include "app/translation_service.hpp"
 #include "app/workflow_service.hpp"
 #include "app/workflow_job_service.hpp"
+#include "app/workflow_folder_watch_service.hpp"
 #include "app/batch_job.hpp"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSet>
 #include <QTextStream>
+#include <QThread>
+
+#include <csignal>
 
 namespace {
+
+volatile std::sig_atomic_t stopFolderWatch = 0;
+void handleWatchSignal(int) { stopFolderWatch = 1; }
 
 int usage() {
   QTextStream out(stdout);
@@ -38,6 +46,7 @@ int usage() {
       << "  omnidrop-cli workflow execute <job-id>\n"
       << "  omnidrop-cli workflow retry <job-id>\n"
       << "  omnidrop-cli workflow remove <job-id>\n"
+      << "  omnidrop-cli workflow watch <workflow.json> <folder> [--max-files N]\n"
       << "  omnidrop-cli worker-ping\n";
   return 1;
 }
@@ -160,6 +169,98 @@ int main(int argc, char* argv[]) {
   if (command == "workflow" && args.size() >= 3) {
     const QString operation = args.at(2);
     omnidrop::WorkflowJobService jobs;
+    if (operation == "watch" && (args.size() == 5 || args.size() == 7)) {
+      int maxFiles = 0;  // Zero means keep watching until explicitly interrupted.
+      if (args.size() == 7) {
+        if (args.at(5) != "--max-files") return usage();
+        bool parsed = false;
+        maxFiles = args.at(6).toInt(&parsed);
+        if (!parsed || maxFiles < 1 || maxFiles > 10000) return usage();
+      }
+      omnidrop::WorkflowService workflows;
+      const auto loaded = workflows.load(args.at(3));
+      if (!loaded.ok) {
+        err << loaded.error << '\n';
+        return 3;
+      }
+      omnidrop::WorkflowFolderWatchService watch;
+      QString reason;
+      if (!watch.arm(args.at(4), loaded.document, &reason)) {
+        err << reason << '\n';
+        return 2;
+      }
+      stopFolderWatch = 0;
+      std::signal(SIGINT, handleWatchSignal);
+      out << QJsonDocument(QJsonObject{
+          {"event", "watch.armed"}, {"schema_version", 1},
+          {"folder", watch.folder()},
+          {"existing_files_ignored", true}, {"recursive", false},
+      }).toJson(QJsonDocument::Compact) << '\n';
+      out.flush();
+
+      int processed = 0;
+      bool failed = false;
+      while (!stopFolderWatch && (maxFiles == 0 || processed < maxFiles)) {
+        const auto scan = watch.scan(QDateTime::currentMSecsSinceEpoch());
+        if (!scan.ok()) {
+          err << scan.error << '\n';
+          failed = true;
+          break;
+        }
+        for (const auto& path : scan.readyPaths) {
+          if (stopFolderWatch) break;
+          const auto enqueued = jobs.enqueue(watch.workflow(), {path});
+          const auto entry = QJsonDocument::fromJson(enqueued.output.toUtf8()).object();
+          const auto id = entry.value("job").toObject().value("id").toString();
+          if (!enqueued.ok || id.isEmpty()) {
+            out << QJsonDocument(QJsonObject{
+                {"event", "watch.rejected"}, {"schema_version", 1},
+                {"source_path", path}, {"error", enqueued.error},
+            }).toJson(QJsonDocument::Compact) << '\n';
+            out.flush();
+            continue;
+          }
+
+          out << QJsonDocument(QJsonObject{
+              {"event", "watch.job_queued"}, {"schema_version", 1},
+              {"job_id", id}, {"source_path", path},
+          }).toJson(QJsonDocument::Compact) << '\n';
+          out.flush();
+
+          const auto executed = jobs.execute(id, [&out](const QJsonObject& event) {
+            out << QJsonDocument(event).toJson(QJsonDocument::Compact) << '\n';
+            out.flush();
+          });
+          const auto report = QJsonDocument::fromJson(executed.output.toUtf8()).object();
+          QStringList outputs;
+          for (const auto& value : report.value("created_output_paths").toArray()) {
+            outputs.append(value.toString());
+          }
+          watch.ignoreCreatedOutputs(outputs);
+
+          out << QJsonDocument(QJsonObject{
+              {"event", "watch.job_finished"}, {"schema_version", 1},
+              {"job_id", id}, {"ok", executed.ok},
+              {"created_output_paths", report.value("created_output_paths")},
+              {"error", executed.error},
+          }).toJson(QJsonDocument::Compact) << '\n';
+          out.flush();
+          ++processed;
+          if (maxFiles != 0 && processed >= maxFiles) break;
+        }
+        if (!stopFolderWatch && (maxFiles == 0 || processed < maxFiles)) {
+          QThread::msleep(600);
+        }
+      }
+      watch.stop();
+      out << QJsonDocument(QJsonObject{
+          {"event", "watch.stopped"}, {"schema_version", 1},
+          {"processed_count", processed},
+      }).toJson(QJsonDocument::Compact) << '\n';
+      out.flush();
+      return failed ? 2 : 0;
+    }
+
     if (operation == "jobs" && args.size() == 3) {
       const auto response = jobs.listJobs();
       if (!response.output.isEmpty()) out << response.output << '\n';
