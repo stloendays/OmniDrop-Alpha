@@ -43,6 +43,7 @@ int usage() {
       << "  omnidrop-cli workflow run-stream <workflow.json> <file> [...]\n"
       << "  omnidrop-cli workflow enqueue <workflow.json> <file> [...]\n"
       << "  omnidrop-cli workflow jobs\n"
+      << "  omnidrop-cli workflow events <job-id>\n"
       << "  omnidrop-cli workflow execute <job-id>\n"
       << "  omnidrop-cli workflow retry <job-id>\n"
       << "  omnidrop-cli workflow remove <job-id>\n"
@@ -263,6 +264,13 @@ int main(int argc, char* argv[]) {
 
     if (operation == "jobs" && args.size() == 3) {
       const auto response = jobs.listJobs();
+      if (!response.output.isEmpty()) out << response.output << '\n';
+      if (!response.ok) err << response.error << '\n';
+      return response.ok ? 0 : 2;
+    }
+
+    if (operation == "events" && args.size() == 4) {
+      const auto response = jobs.events(args.at(3));
       if (!response.output.isEmpty()) out << response.output << '\n';
       if (!response.ok) err << response.error << '\n';
       return response.ok ? 0 : 2;
