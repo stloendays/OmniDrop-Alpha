@@ -54,6 +54,10 @@ int main(int argc, char** argv) {
   assert(error.isEmpty());
   assert(watcher.active());
 
+  omnidrop::WorkflowFolderWatchService second;
+  assert(!second.arm(folder, workflow(), &error));
+  assert(error.contains("already watched"));
+
   // Existing files, even after changes, are ignored until explicitly rearmed.
   const qint64 now = QDateTime::currentMSecsSinceEpoch();
   assert(watcher.scan(now).readyPaths.isEmpty());
@@ -99,6 +103,8 @@ int main(int argc, char** argv) {
   // Once the watch stops there is no unattended processing or stale state.
   watcher.stop();
   assert(!watcher.active());
+  assert(second.arm(folder, workflow(), &error));
+  second.stop();
   assert(!watcher.scan(now + 30000).ok());
   assert(watcher.arm(folder, workflow(), &error));  // New baseline.
   assert(watcher.scan(now + 35000).readyPaths.isEmpty());
