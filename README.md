@@ -36,7 +36,7 @@ New optional workspaces:
 
 ## Status
 
-OmniDrop is in early alpha (`0.1.0`). The current vertical slice includes:
+OmniDrop is in early alpha (`0.2.0`). The current vertical slice includes:
 
 - Qt 6 / C++20 desktop shell with drag-and-drop and an Open File path.
 - File-kind detection and context-aware action recommendations.
