@@ -17,6 +17,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
+from translation import TranslationError, translate_file, ALL_PROVIDERS, SUPPORTED_SUFFIXES
+
 
 WORKER_DIR = Path(__file__).resolve().parent
 VENDOR_DIR = WORKER_DIR / "vendor"
@@ -429,7 +431,42 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
         return ok(worker="python", protocol=1)
 
     if command == "capabilities":
-        return ok(actions=capabilities(), pillow=pillow_available(), pypdf=pypdf_available())
+        return ok(
+            actions=capabilities(), pillow=pillow_available(), pypdf=pypdf_available(),
+            translation={
+                "providers": sorted(ALL_PROVIDERS),
+                "extensions": sorted(SUPPORTED_SUFFIXES),
+                "requires_explicit_remote_consent": True,
+            },
+        )
+
+    if command == "translate_file":
+        # An explicit command keeps remote transmission out of ordinary file actions.
+        raw_path = request.get("path")
+        provider = request.get("provider")
+        source = request.get("source_lang")
+        target = request.get("target_lang")
+        allow_remote = request.get("allow_remote", False)
+        endpoint = request.get("endpoint", "")
+        api_key = request.get("api_key", "")
+
+        if not all(isinstance(value, str) for value in
+                   (raw_path, provider, source, target, endpoint, api_key)):
+            return fail("Translation request fields must be strings.", "invalid_request")
+        if not isinstance(allow_remote, bool):
+            return fail("allow_remote must be a boolean.", "invalid_request")
+        try:
+            result = translate_file(
+                Path(raw_path), source, target, provider,
+                allow_remote=allow_remote, endpoint=endpoint, api_key=api_key,
+            )
+            return ok(command=command, **result)
+        except TranslationError as exc:
+            return fail(str(exc), exc.code)
+        except OSError:
+            return fail("Cannot read or write the translation file.", "io_error")
+        except Exception:
+            return fail("Translation failed unexpectedly; no output was saved.", "translation_error")
 
     if command == "run_batch":
         action_id = request.get("action_id")
