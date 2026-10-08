@@ -208,6 +208,15 @@ def image_resize_half(path: Path) -> tuple[Path, tuple[int, int], tuple[int, int
         image.load()
         before_size = image.size
         after_size = tuple(max(1, (dimension + 1) // 2) for dimension in before_size)
+
+        # Pillow forces nearest-neighbor for palette/bilevel images regardless of
+        # the requested filter. Convert first to actually honor LANCZOS, while
+        # preserving transparency in paletted PNGs.
+        if image.mode == "P":
+            image = image.convert("RGBA" if "transparency" in image.info else "RGB")
+        elif image.mode == "1":
+            image = image.convert("L")
+
         resized = image.resize(after_size, resample=Image.Resampling.LANCZOS)
         fmt = (source.format or path.suffix.lstrip(".")).upper()
         save_args: dict[str, Any] = {}
