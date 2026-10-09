@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-label="OmniDrop brand card with local file actions and visual workflows">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8f8fa"/><stop offset="1" stop-color="#e6e8eb"/></linearGradient>
+  <filter id="sh"><feDropShadow dx="0" dy="15" stdDeviation="22" flood-color="#454b54" flood-opacity=".16"/></filter>
+</defs>
+<rect width="1280" height="640" fill="url(#bg)"/>
+<rect x="80" y="89" width="110" height="110" rx="27" fill="#15171b"/>
+<g transform="translate(105 113)" stroke="#f5f6f8" stroke-width="4.2" stroke-linejoin="round" fill="none">
+<path d="M30 3L59 20L30 37L1 20Z M1 20V52L30 70V37 M59 20V52L30 70"/>
+</g>
+<text x="225" y="173" font-family="Segoe UI,Arial,sans-serif" font-size="80" font-weight="750" fill="#191b1e">OmniDrop</text>
+<text x="85" y="272" font-family="Segoe UI,Arial,sans-serif" font-size="32" font-weight="600" fill="#34383e">Drop a file. Find the right action.</text>
+<text x="85" y="314" font-family="Segoe UI,Arial,sans-serif" font-size="32" font-weight="600" fill="#34383e">Make the workflow your own.</text>
+<text x="86" y="371" font-family="Segoe UI,Arial,sans-serif" font-size="22" fill="#787d85">Local-first file tools and visual workflows.</text>
+<g filter="url(#sh)">
+<rect x="86" y="438" width="349" height="94" rx="17" fill="#fff" stroke="#d6dae0"/>
+<rect x="452" y="438" width="338" height="94" rx="17" fill="#fff" stroke="#d6dae0"/>
+<rect x="807" y="438" width="391" height="94" rx="17" fill="#fff" stroke="#d6dae0"/>
+</g>
+<g font-family="Segoe UI,Arial,sans-serif" font-size="23" fill="#2d3035" font-weight="650">
+<text x="119" y="493">Context-aware actions</text>
+<text x="486" y="493">Visual workflows</text>
+<text x="836" y="493">Non-destructive outputs</text>
+</g>
+<rect x="83" y="573" width="165" height="37" rx="18.5" fill="#262a30"/>
+<text x="118" y="598" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="650" fill="#fff">Open source</text>
+<text x="269" y="598" font-family="Segoe UI,Arial,sans-serif" font-size="18" fill="#888d94">C++20  •  Qt 6  •  Python</text>
+</svg>
