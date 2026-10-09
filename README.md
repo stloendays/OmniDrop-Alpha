@@ -24,9 +24,9 @@
   · <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
-<!-- VISUAL SLOT 01 / HERO: assets/readme/hero.webp
-     Reserved for a real, verified OmniDrop screenshot or approved illustration.
-     No placeholder artwork or broken image link is published yet. -->
+![OmniDrop desktop UI preview with context-aware PDF actions](assets/readme/desktop-preview.svg)
+
+<p align="center"><sub>Interface preview · exact layout may vary by installed version.</sub></p>
 
 > [!IMPORTANT]
 > **Early Alpha · v0.3.0.** The Windows x64 portable ZIP includes Qt, a verified isolated Python 3.13.16 interpreter, and the core worker libraries. No system Python installation is required. It is still **not a Windows Authenticode-signed installer**; provenance is independently verified through GitHub's signed attestations. See [release notes](docs/releases/v0.3.0.md).
@@ -68,8 +68,7 @@ Unlike a general-purpose office suite, OmniDrop concentrates on the file operati
 
 [Full Action IDs and status](docs/ACTIONS.md) · [Translation and privacy](docs/TRANSLATION.md) · [Offline voice packs](docs/VOICE_PACKS.md)
 
-<!-- VISUAL SLOT 02 / FILE ACTIONS: assets/readme/workspace.webp
-     Real product capture to be added later. -->
+<p align="center"><sub>The file workspace detects available local actions and keeps source files unchanged.</sub></p>
 
 ## Quick start
 
@@ -99,8 +98,7 @@ The portable package bundles Qt, an isolated Python 3.13 interpreter, and select
 
 **3. Watched folders.** Explicitly arm one local directory for a chosen workflow. Only *new, stable* arrivals are considered; already-present files and generated outputs are suppressed. Watching is non-recursive and stops with the session.
 
-<!-- VISUAL SLOT 03 / DAG BUILDER: assets/readme/workflow-canvas.webp
-     Real graph-editor screenshot to be added later. -->
+![OmniDrop Workflow Builder UI preview showing text-processing nodes and SHA-256 branch](assets/readme/workflow-preview.svg)
 
 ## Workflows
 
@@ -134,8 +132,7 @@ Replace `C:\Files\notes.txt` with a real text file. The GUI also offers **Previe
 
 [Workflow guide](docs/WORKFLOWS.md) · [Jobs and retries](docs/WORKFLOW_JOBS.md) · [Folder Watch safety](docs/WORKFLOW_WATCH.md) · [Example workflows](workflows/examples)
 
-<!-- VISUAL SLOT 04 / JOBS + WATCH: assets/readme/jobs-history.webp and folder-watch.webp
-     Reserved until real screenshots are available. -->
+![OmniDrop Jobs UI preview showing local job history and opt-in folder watching](assets/readme/jobs-preview.svg)
 
 ## Local-first, by design
 
