@@ -49,7 +49,7 @@ QList<ActionDescriptor> ActionCatalog::recommendedActions(FileKind kind) const {
           action("pdf.split", "Split pages", "Create one PDF file per page in a new folder.", 30, true, "python-pypdf"),
           action("pdf.rotate_clockwise", "Rotate pages 90° clockwise", "Create a copy with every page rotated 90 degrees clockwise.", 35, true, "python-pypdf"),
           action("pdf.rotate_counterclockwise", "Rotate pages 90° counterclockwise", "Create a copy with every page rotated 90 degrees counterclockwise.", 36, true, "python-pypdf"),
-          action("pdf.extract_images", "Extract images", "Export embedded images.", 40),
+          action("pdf.extract_images", "Extract embedded images", "Save PDF image streams to a new sibling folder.", 40, true, "python-pypdf"),
       };
       break;
     case FileKind::Video:
