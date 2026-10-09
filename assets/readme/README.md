@@ -1,25 +1,35 @@
-# README visual assets — reserved, not yet generated
+# OmniDrop README visual assets
 
-This folder reserves the **future real screenshots and visuals** for OmniDrop's GitHub homepage.
-The first README redesign intentionally renders **no screenshots, fake UI mockups, empty frames, or broken image URLs**.
+The repository includes four compact, self-contained SVG interface previews,
+designed for the GitHub homepage and readable on desktop/mobile:
 
-Once approved images are ready, place them here and replace the matching HTML comments in the repository root `README.md` and `docs/README.zh-CN.md`.
+| Asset | Purpose |
+| --- | --- |
+| [desktop-preview.svg](desktop-preview.svg) | Main file workspace and context-aware PDF actions |
+| [workflow-preview.svg](workflow-preview.svg) | Workflow Builder with valid offline DAG branches |
+| [jobs-preview.svg](jobs-preview.svg) | Durable Jobs list and opt-in folder monitoring |
+| [social-preview.svg](social-preview.svg) | Consistent brand/share identity image |
 
-| Filename (future) | Content | Preferred format |
-| --- | --- | --- |
-| `hero.webp` | Real OmniDrop window with file drop zone and context-aware actions | Wide 16:9, >= 1600 px |
-| `workspace.webp` | File action selection or batch progress captured from a tested build | 16:9, >= 1400 px |
-| `workflow-canvas.webp` | Editable DAG showing branching and links | 16:9, >= 1400 px |
-| `jobs-history.webp` | Local Jobs queue and progress; no confidential paths | 16:9, >= 1400 px |
-| `folder-watch.webp` | Opt-in Watch folder interaction and stable-file execution | 16:9, >= 1400 px |
+They deliberately use the same restrained black/white/gray design language
+as OmniDrop. These are interface previews, **not claimed to be pixel-identical
+captures** of the current Windows build. They make no promises about features
+not yet supported by the `v0.3.0` release.
 
-Visual rules:
-- Do not show unimplemented features, fabricated performance figures or fake testimonials.
-- Use the app's restrained black/white/gray visual identity.
-- Hide or replace real user file paths, names, credentials and personal data.
-- Prefer captured product screenshots; label any conceptual illustration clearly.
-- Use descriptive alt text and compressed, reasonably sized images.
-- Do not add externally hosted hotlinks or animated previews until the real source files exist.
+## Replacing these with captured images
 
-The public release stays at v0.2.0 until the next verified release. A screenshot
-from unreleased `main` features should be identified as a development preview.
+Real Windows screenshots can replace or complement the previews once verified:
+
+- `hero.webp`: clean full product window, 16:9.
+- `workspace.webp`: file action selection, 16:9.
+- `workflow-canvas.webp`: editable graph, 16:9.
+- `jobs-history.webp`: retained Jobs history, 16:9.
+- `folder-watch.webp`: opt-in folder monitor state, 16:9.
+
+Before introducing those files, capture a test-only workspace, remove personal
+paths/documents, confirm the controls are present in a runnable build, and
+compress without sacrificing text clarity. README image links should point
+only to committed files; use descriptive alt text.
+
+The social identity SVG is suitable for inline README use. GitHub's separate
+**Social preview** setting may require a raster PNG uploaded by a repository
+owner; placing an SVG in source control does not configure that GitHub setting.
