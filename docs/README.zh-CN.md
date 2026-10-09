@@ -8,7 +8,9 @@
 
 > **一个入口，处理文件；一个工作流，自动重复。** 默认本地处理、尽量保留原文件，云端功能由用户明确选择。
 
-<!-- Screenshot slot: assets/readme/hero.webp. Intentionally empty until real imagery is prepared. -->
+![OmniDrop 本地文件工作台界面预览](../assets/readme/desktop-preview.svg)
+
+<p align="center"><sub>界面预览 · 实际布局以所安装的 Alpha 版本为准。</sub></p>
 
 **当前阶段：v0.3.0 Alpha（Windows x64 预览版）**
 
@@ -30,8 +32,9 @@
 | 场景 | 当前可用功能 |
 | --- | --- |
 | 文本与开发文件 | 规范化文本、去除重复行、JSON/XML 格式化、计算 SHA-256 |
+| 重复文件检测 | 对选定文件按大小与 SHA-256 核对重复内容，生成不删除原文件的 JSON 报告 |
 | 图片 | 压缩、转换 WebP、去元数据、旋转 90°、按 50% 缩放 |
-| PDF | 提取文本、分割页面、合并多个 PDF、旋转页面 |
+| PDF | 提取文本与内嵌图片、分割页面、合并多个 PDF、旋转页面 |
 | ZIP | 检查内容、安全解压 |
 | 批处理与 Workflow | 多文件处理、可视化 DAG、实时进度、文件间安全停止、持久化 Jobs |
 | 翻译（可选） | 离线 Argos；或经用户明确同意的 MyMemory、LibreTranslate、DeepL API Free |
@@ -54,7 +57,11 @@
 
 **组合工作流：** 打开 **Workflow...** → 从线性步骤切换到 DAG 节点图 → 连接动作 → **Preview plan** 预览 → 执行或保存。
 
+![OmniDrop 工作流 DAG 编辑器界面预览](../assets/readme/workflow-preview.svg)
+
 **监控新文件：** 在 Workflow 中点击 **Watch folder...**，手动指定文件夹。仅识别会话期间进入的稳定文件；关闭编辑器后不会自动继续监听。详情见 [文件夹监控文档](WORKFLOW_WATCH.md)。
+
+![OmniDrop Jobs 队列与文件夹监控界面预览](../assets/readme/jobs-preview.svg)
 
 在 ZIP 解压目录中，也可使用 CLI：
 
