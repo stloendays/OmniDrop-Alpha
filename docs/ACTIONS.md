@@ -9,6 +9,7 @@ alias when semantics genuinely change.
 | ID | File kind | State | Backend | Output semantics |
 | --- | --- | --- | --- | --- |
 | `file.sha256` | any | implemented | Python stdlib | no file output; returns digest |
+| `file.find_duplicates` | 2-128 selected files | implemented, batch-only | Python stdlib | new JSON report, no files deleted or changed |
 | `text.normalize` | text/developer | implemented | Python stdlib | new sibling file |
 | `text.deduplicate` | text/developer | implemented | Python stdlib | new sibling file |
 | `text.format_json` | JSON | implemented | Python stdlib | validated, pretty-printed sibling `.json` file |
