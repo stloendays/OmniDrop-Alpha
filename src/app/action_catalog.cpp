@@ -93,21 +93,30 @@ QList<ActionDescriptor> ActionCatalog::recommendedActions(FileKind kind) const {
 QList<ActionDescriptor> ActionCatalog::recommendedBatchActions(const QList<FileKind>& kinds) const {
   if (kinds.size() < 2) return {};
 
+  QList<ActionDescriptor> actions{
+      action(
+          "file.find_duplicates",
+          "Find exact duplicates",
+          "Compare selected files by size and SHA-256; save a read-only JSON report.",
+          8,
+          true,
+          "python",
+          ActionScope::Batch),
+  };
   const bool allPdf = std::all_of(kinds.begin(), kinds.end(), [](FileKind kind) {
     return kind == FileKind::Pdf;
   });
-  if (!allPdf) return {};
-
-  return {
-      action(
-          "pdf.merge",
-          "Merge PDFs",
-          "Combine selected PDFs into one document in the current selection order.",
-          5,
-          true,
-          "python-pypdf",
-          ActionScope::Batch),
-  };
+  if (allPdf) {
+    actions.prepend(action(
+        "pdf.merge",
+        "Merge PDFs",
+        "Combine selected PDFs into one document in the current selection order.",
+        5,
+        true,
+        "python-pypdf",
+        ActionScope::Batch));
+  }
+  return actions;
 }
 
 }  // namespace omnidrop

@@ -123,6 +123,7 @@ Implemented:
 - JSON validation + pretty-print formatting;
 - XML parsing + pretty-print formatting;
 - SHA-256 for any local file.
+- read-only size + SHA-256 exact duplicate report for 2-128 selected files;
 
 Next:
 

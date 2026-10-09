@@ -76,6 +76,7 @@ int main(int argc, char** argv) {
   OmniDropService service;
   const QSet<QString> runtimeActions{
       "file.sha256",
+      "file.find_duplicates",
       "text.to_speech",
       "text.normalize",
       "text.deduplicate",
@@ -140,9 +141,15 @@ int main(int argc, char** argv) {
   assert(batchHasNormalize);
 
   const auto mixed = service.inspectMany({"a.txt", "b.png"}, runtimeActions);
-  assert(mixed.actions.size() == 1);
-  assert(mixed.actions.first().id == "file.sha256");
-  assert(mixed.actions.first().available);
+  bool mixedCanHash = false;
+  bool mixedCanFindDuplicates = false;
+  for (const auto& action : mixed.actions) {
+    mixedCanHash |= action.id == "file.sha256" && action.available;
+    mixedCanFindDuplicates |= action.id == "file.find_duplicates" &&
+                              action.available && action.scope == ActionScope::Batch;
+  }
+  assert(mixedCanHash);
+  assert(mixedCanFindDuplicates);
 
   const auto onePdfInspection = service.inspect("a.pdf", runtimeActions);
   bool pdfRotateAvailable = false;
@@ -153,12 +160,15 @@ int main(int argc, char** argv) {
 
   const auto twoPdf = service.inspectMany({"a.pdf", "b.pdf"}, runtimeActions);
   bool hasMerge = false;
+  bool hasDuplicateReport = false;
   for (const auto& action : twoPdf.actions) {
     if (action.id == "pdf.merge") {
       hasMerge = action.available && action.scope == ActionScope::Batch;
     }
+    if (action.id == "file.find_duplicates") hasDuplicateReport = action.available;
   }
   assert(hasMerge);
+  assert(hasDuplicateReport);
 
   const auto onePdf = service.inspectMany({"a.pdf"}, runtimeActions);
   for (const auto& action : onePdf.actions) {
