@@ -27,7 +27,7 @@ alias when semantics genuinely change.
 | `pdf.rotate_clockwise` | PDF | implemented | pypdf | new sibling PDF with every page rotated 90° clockwise |
 | `pdf.rotate_counterclockwise` | PDF | implemented | pypdf | new sibling PDF with every page rotated 90° counterclockwise |
 | `pdf.merge` | 2+ PDFs | implemented | pypdf | one merged sibling PDF; selected input order is preserved |
-| `pdf.extract_images` | PDF | planned | PDF adapter | TBD |
+| `pdf.extract_images` | PDF | implemented, runtime-gated | pypdf + Pillow | new sibling folder; embedded images extracted with generated safe page/image filenames |
 | `video.compress` | video | planned | FFmpeg | TBD |
 | `video.extract_audio` | video | planned | FFmpeg | TBD |
 | `video.convert` | video | planned | FFmpeg | TBD |
