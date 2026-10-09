@@ -50,6 +50,7 @@ class ActionSpec:
 # intentionally not representable by a workflow manifest.
 ACTIONS: dict[str, ActionSpec] = {
     "file.sha256": ActionSpec("file", None, "none"),
+    "file.find_duplicates": ActionSpec("batch", None, "file", ".json"),
     "text.normalize": ActionSpec("file", TEXT, "same"),
     "text.deduplicate": ActionSpec("file", TEXT, "same"),
     "text.format_json": ActionSpec("file", frozenset({".json"}), "file", ".json"),
