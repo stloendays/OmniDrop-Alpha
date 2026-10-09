@@ -20,6 +20,7 @@ from typing import Any
 from translation import TranslationError, translate_file, ALL_PROVIDERS, SUPPORTED_SUFFIXES
 from audio_voice import SpeechError, speech_available, installed_voices, narrate_file
 from pdf_image_extraction import extract_images as pdf_extract_images
+from duplicate_finder import create_report as find_duplicate_files
 from workflow_engine import WorkflowError, plan as workflow_plan, run as workflow_run, validate as workflow_validate
 
 
@@ -399,6 +400,7 @@ def zip_extract(path: Path) -> tuple[Path, int]:
 def capabilities() -> list[str]:
     actions = [
         "file.sha256",
+        "file.find_duplicates",
         "text.normalize",
         "text.deduplicate",
         "text.format_json",
@@ -506,6 +508,25 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
             return fail("Batch action requires at least two files.", "invalid_request")
         if any(not path.is_file() for path in paths):
             return fail("One or more input files do not exist.", "not_found")
+
+        if action_id == "file.find_duplicates":
+            try:
+                if len(paths) > 128:
+                    return fail("Duplicate scan accepts at most 128 files.", "invalid_request")
+                output, report = find_duplicate_files(paths, unique_output_path)
+                return ok(
+                    action_id=action_id,
+                    paths=[str(path) for path in paths],
+                    output_path=str(output),
+                    input_count=len(paths),
+                    duplicate_group_count=report["duplicate_group_count"],
+                    duplicate_file_count=report["duplicate_file_count"],
+                    potential_reclaimable_bytes=report["potential_reclaimable_bytes"],
+                )
+            except ValueError as exc:
+                return fail(str(exc), "invalid_request")
+            except OSError:
+                return fail("Duplicate scan could not read input or write report.", "io_error")
 
         if action_id == "pdf.merge":
             if any(path.suffix.lower() != ".pdf" for path in paths):
