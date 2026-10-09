@@ -84,6 +84,7 @@ Next:
 Implemented:
 
 - text extraction;
+- embedded-image extraction with bounded output and safe filenames;
 - split into one PDF per page;
 - batch execution for existing single-PDF actions;
 - merge 2+ selected PDFs into one document while preserving selection order.
@@ -91,7 +92,7 @@ Implemented:
 Next:
 
 - reorder/rotate;
-- extract embedded images;
+- image extraction previews and selected-page export;
 - OCR scanned documents;
 - image-to-PDF and PDF-to-image;
 - size optimization with visible quality trade-offs.
