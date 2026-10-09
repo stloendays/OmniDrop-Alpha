@@ -19,6 +19,7 @@ from typing import Any
 
 from translation import TranslationError, translate_file, ALL_PROVIDERS, SUPPORTED_SUFFIXES
 from audio_voice import SpeechError, speech_available, installed_voices, narrate_file
+from pdf_image_extraction import extract_images as pdf_extract_images
 from workflow_engine import WorkflowError, plan as workflow_plan, run as workflow_run, validate as workflow_validate
 
 
@@ -426,6 +427,8 @@ def capabilities() -> list[str]:
             "pdf.rotate_counterclockwise",
             "pdf.merge",
         ])
+        if pillow_available():
+            actions.append("pdf.extract_images")
     return actions
 
 
@@ -581,6 +584,21 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
                 return ok(action_id=action_id, path=str(path), output_path=str(output))
             except Exception as exc:
                 return fail(f"PDF text extraction failed: {exc}", "pdf_error")
+        if action_id == "pdf.extract_images":
+            if path.suffix.lower() != ".pdf":
+                return fail("Image extraction requires a PDF file.", "invalid_request")
+            if not pypdf_available() or not pillow_available():
+                return fail("pypdf and Pillow are required to extract PDF images.", "missing_dependency")
+            try:
+                output_dir, image_count = pdf_extract_images(path, unique_output_directory)
+                return ok(
+                    action_id=action_id,
+                    path=str(path),
+                    output_path=str(output_dir),
+                    image_count=image_count,
+                )
+            except Exception as exc:
+                return fail(f"PDF image extraction failed: {exc}", "pdf_error")
         if action_id == "pdf.split":
             if not pypdf_available():
                 return fail("pypdf is not installed for PDF processing.", "missing_dependency")

@@ -61,14 +61,17 @@ int main(int argc, char** argv) {
   bool hasExtract = false;
   bool hasPdfRotateClockwise = false;
   bool hasPdfRotateCounterclockwise = false;
+  bool hasPdfExtractImages = false;
   for (const auto& action : pdf) {
     hasExtract |= action.id == "pdf.extract_text";
     hasPdfRotateClockwise |= action.id == "pdf.rotate_clockwise";
     hasPdfRotateCounterclockwise |= action.id == "pdf.rotate_counterclockwise";
+    hasPdfExtractImages |= action.id == "pdf.extract_images" && action.backend == "python-pypdf";
   }
   assert(hasExtract);
   assert(hasPdfRotateClockwise);
   assert(hasPdfRotateCounterclockwise);
+  assert(hasPdfExtractImages);
 
   OmniDropService service;
   const QSet<QString> runtimeActions{
@@ -85,6 +88,7 @@ int main(int argc, char** argv) {
       "image.resize_half",
       "image.remove_metadata",
       "pdf.extract_text",
+      "pdf.extract_images",
       "pdf.split",
       "pdf.rotate_clockwise",
       "pdf.rotate_counterclockwise",

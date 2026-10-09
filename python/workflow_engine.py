@@ -63,6 +63,7 @@ ACTIONS: dict[str, ActionSpec] = {
     "image.remove_metadata": ActionSpec("file", COMPRESSIBLE, "same"),
     "pdf.extract_text": ActionSpec("file", frozenset({".pdf"}), "file", ".txt"),
     "pdf.split": ActionSpec("file", frozenset({".pdf"}), "directory"),
+    "pdf.extract_images": ActionSpec("file", frozenset({".pdf"}), "directory"),
     "pdf.rotate_clockwise": ActionSpec("file", frozenset({".pdf"}), "file", ".pdf"),
     "pdf.rotate_counterclockwise": ActionSpec("file", frozenset({".pdf"}), "file", ".pdf"),
     "pdf.merge": ActionSpec("batch", frozenset({".pdf"}), "file", ".pdf"),

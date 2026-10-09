@@ -54,7 +54,7 @@ Unlike a general-purpose office suite, OmniDrop concentrates on the file operati
 | --- | --- |
 | **Text & developer files** | Normalize whitespace/line endings, remove duplicate lines, format JSON/XML, calculate SHA-256 |
 | **Images** | Compress, convert to WebP, remove metadata, rotate 90° and resize to 50% |
-| **PDFs** | Extract text, split pages, merge PDFs in selected order and rotate pages |
+| **PDFs** | Extract text and embedded images, split pages, merge PDFs in selected order and rotate pages |
 | **ZIP archives** | Inspect archive contents and safely extract files |
 | **Batch operations** | Process multiple selected files with per-file progress and cooperative stop |
 | **Workflow Builder** | Create, edit, preview, save and run DAGs with branches and joins |
