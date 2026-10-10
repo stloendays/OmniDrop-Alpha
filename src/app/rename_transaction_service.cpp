@@ -440,6 +440,48 @@ RenameTransactionResult RenameTransactionService::status(
   return error.isEmpty() ? report(document) : failure(error, id);
 }
 
+QJsonObject RenameTransactionService::listTransactions() const {
+  if (!QDir::isAbsolutePath(journalDirectory_)) {
+    return QJsonObject{{"schema_version", 1},
+                       {"operation", "rename.transactions.list"},
+                       {"ok", false},
+                       {"error", "Rename journal directory must be absolute."}};
+  }
+  QDir directory(journalDirectory_);
+  QJsonArray records;
+  if (directory.exists()) {
+    const auto names =
+        directory.entryList({"*.json"}, QDir::Files | QDir::NoDotAndDotDot,
+                            QDir::Time);
+    for (const auto& name : names) {
+      if (records.size() >= kMaxJournalCount) break;
+      const QString id = name.left(name.size() - 5);
+      if (!kTransactionId.match(id).hasMatch()) continue;
+      QString error;
+      const auto document = readJournal(journalDirectory_, id, &error);
+      if (!error.isEmpty()) {
+        records.append(QJsonObject{{"transaction_id", id},
+                                   {"state", "invalid"},
+                                   {"error", "Journal requires manual inspection."}});
+      } else {
+        records.append(QJsonObject{
+            {"transaction_id", id},
+            {"state", document.value("state")},
+            {"created_at", document.value("created_at")},
+            {"updated_at", document.value("updated_at")},
+            {"row_count", document.value("rows").toArray().size()},
+        });
+      }
+    }
+  }
+  return QJsonObject{
+      {"schema_version", 1},
+      {"operation", "rename.transactions.list"},
+      {"ok", true},
+      {"transactions", records},
+  };
+}
+
 RenameTransactionResult RenameTransactionService::apply(
     const QString& id, bool explicitlyApproved) const {
   if (!explicitlyApproved)
