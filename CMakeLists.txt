@@ -133,6 +133,14 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
            COMMAND omnidrop_workflow_folder_watch_tests)
 
   if(TARGET omnidrop_cli)
+    add_executable(omnidrop_rename_preview_cli_tests
+      tests/rename_preview_cli_tests.cpp)
+    target_link_libraries(omnidrop_rename_preview_cli_tests PRIVATE Qt6::Core)
+    add_test(NAME omnidrop_rename_preview_cli_tests
+             COMMAND omnidrop_rename_preview_cli_tests
+                     "$<TARGET_FILE:omnidrop_cli>")
+    set_tests_properties(omnidrop_rename_preview_cli_tests PROPERTIES TIMEOUT 25)
+
     add_test(NAME omnidrop_cli_rename_preview
              COMMAND omnidrop_cli rename-preview --find README --replace DOCUMENT
                      "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
