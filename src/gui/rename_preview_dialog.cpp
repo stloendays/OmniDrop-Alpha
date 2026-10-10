@@ -38,7 +38,8 @@ RenamePreviewDialog::RenamePreviewDialog(
   layout->addWidget(title);
 
   auto* notice = new QLabel(
-      "Preview only: OmniDrop will not rename, move or overwrite any files.",
+      "Preview is read-only. Filenames change only after Prepare & apply " 
+      "and a separate confirmation. Existing targets are never overwritten.",
       this);
   notice->setWordWrap(true);
   layout->addWidget(notice);
@@ -338,7 +339,7 @@ void RenamePreviewDialog::refreshPreview() {
   const int unchanged = result.rows.size() - result.proposedChangeCount;
   summary_->setText(
       QString("%1 ready  |  %2 conflicts  |  %3 unchanged. "
-              "No rename will be applied.")
+              "Changes require your separate confirmation.")
           .arg(result.readyCount)
           .arg(result.conflictCount)
           .arg(unchanged));
