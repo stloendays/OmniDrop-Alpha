@@ -40,6 +40,7 @@ int usage() {
       << "  omnidrop-cli batch-run <action-id> <file> <file> [...]\n"
       << "  omnidrop-cli rename-preview --find PATTERN --replace TEXT [--regex] [--ignore-case] [--include-extension] <file> [...]\n"
       << "  omnidrop-cli rename-prepare --find PATTERN --replace TEXT [--regex] [--ignore-case] [--include-extension] <file> [...]\n"
+      << "  omnidrop-cli rename-list\n"
       << "  omnidrop-cli rename-status <transaction-id>\n"
       << "  omnidrop-cli rename-apply <transaction-id> --confirm\n"
       << "  omnidrop-cli rename-undo <transaction-id> --confirm\n"
@@ -227,6 +228,12 @@ int main(int argc, char* argv[]) {
     }
     // A valid plan with collisions is not safe for future execution.
     return result.conflictCount > 0 ? 3 : 0;
+  }
+
+  if (command == "rename-list" && args.size() == 2) {
+    const auto data = omnidrop::RenameTransactionService{}.listTransactions();
+    out << QJsonDocument(data).toJson(QJsonDocument::Compact) << '\n';
+    return data.value("ok").toBool() ? 0 : 2;
   }
 
   if (command == "rename-status" || command == "rename-apply" ||
