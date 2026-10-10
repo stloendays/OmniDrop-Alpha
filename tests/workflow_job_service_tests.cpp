@@ -67,6 +67,12 @@ int main(int argc, char** argv) {
   auto entries = decode(listed).value("jobs").toArray();
   assert(entries.size() == 1);
   assert(entries.first().toObject().value("status").toString() == "queued");
+  auto initialHistory = decode(service.events(id));
+  assert(initialHistory.value("ok").toBool());
+  assert(initialHistory.value("events").toArray().size() == 1);
+  assert(initialHistory.value("events").toArray().first().toObject()
+             .value("event").toString() == "job.queued");
+  assert(!service.events("invalid-id").ok);
 
   // Multiple processes cannot run the same persisted job concurrently.
   QLockFile concurrent(storePath + "." + id + ".running");
@@ -86,6 +92,25 @@ int main(int argc, char** argv) {
   assert(entries.first().toObject().value("status").toString() == "completed");
   assert(entries.first().toObject().value("attempts").toInt() == 1);
   assert(entries.first().toObject().value("completed_operations").toInt() == 2);
+
+  // All events are persisted and available after a new WorkflowJobService
+  // instance is created, with no original file paths leaked into event rows.
+  omnidrop::WorkflowJobService afterRestart(storePath);
+  const auto history = decode(afterRestart.events(id));
+  const auto items = history.value("events").toArray();
+  assert(items.size() >= 7);
+  assert(items.first().toObject().value("event").toString() == "job.queued");
+  assert(items.last().toObject().value("event").toString() == "job.completed");
+  bool hasProgress = false;
+  for (const auto& raw : items) {
+    const auto event = raw.toObject();
+    if (event.value("event").toString() == "workflow.action_completed") hasProgress = true;
+    assert(!event.contains("path"));
+    assert(!event.contains("source_path"));
+    assert(!event.contains("inputs"));
+    assert(!QJsonDocument(event).toJson().contains(source.toUtf8()));
+  }
+  assert(hasProgress);
   assert(!service.execute(id).ok);  // Completed jobs are immutable, enqueue anew.
 
   QFile original(source);
@@ -108,10 +133,40 @@ int main(int argc, char** argv) {
   entries = decode(service.listJobs()).value("jobs").toArray();
   assert(entries.first().toObject().value("status").toString() == "completed");
   assert(entries.first().toObject().value("attempts").toInt() == 2);
+  const auto retriedHistory = decode(service.events(nextId)).value("events").toArray();
+  int starts = 0;
+  int failures = 0;
+  for (const auto& raw : retriedHistory) {
+    const auto event = raw.toObject();
+    if (event.value("event").toString() == "job.started") ++starts;
+    if (event.value("event").toString() == "job.failed") ++failures;
+  }
+  assert(starts == 2);
+  assert(failures == 1);
+  assert(retriedHistory.last().toObject().value("event").toString() == "job.completed");
 
   const auto removed = service.remove(id);
   assert(removed.ok);
   assert(decode(service.listJobs()).value("jobs").toArray().size() == 1);
+
+  // Old v2.3 schemas had no "events" field. They must remain readable.
+  const auto legacyPath = temp.filePath("state/legacy-jobs.json");
+  {
+    QFile oldStore(legacyPath);
+    assert(oldStore.open(QIODevice::WriteOnly));
+    const QJsonObject oldRecord{
+        {"schema_version", 1},
+        {"jobs", QJsonArray{QJsonObject{
+            {"id", id}, {"status", "completed"}, {"attempts", 1},
+        }}},
+    };
+    const auto payload = QJsonDocument(oldRecord).toJson(QJsonDocument::Compact);
+    assert(oldStore.write(payload) == payload.size());
+  }
+  omnidrop::WorkflowJobService legacy(legacyPath);
+  const auto restored = decode(legacy.events(id));
+  assert(restored.value("ok").toBool());
+  assert(restored.value("events").toArray().isEmpty());
 
   // Invalid state is never silently overwritten or replaced by an empty store.
   const auto brokenPath = temp.filePath("corrupt.json");

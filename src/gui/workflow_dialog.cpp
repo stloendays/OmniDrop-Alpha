@@ -169,6 +169,14 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
   jobsList_ = new QListWidget(jobsPanel);
   jobsList_->setSelectionMode(QAbstractItemView::SingleSelection);
   jobsLayout->addWidget(jobsList_, 1);
+  auto* eventsLabel = new QLabel("Selected job history", jobsPanel);
+  eventsLabel->setObjectName("workflowSection");
+  jobsLayout->addWidget(eventsLabel);
+  jobEventsView_ = new QPlainTextEdit(jobsPanel);
+  jobEventsView_->setReadOnly(true);
+  jobEventsView_->setMaximumHeight(155);
+  jobEventsView_->setPlaceholderText("Select a saved job to view its local event timeline.");
+  jobsLayout->addWidget(jobEventsView_);
   auto* jobControls = new QHBoxLayout;
   refreshJobsButton_ = new QPushButton("Refresh", jobsPanel);
   executeJobButton_ = new QPushButton("Run / Retry", jobsPanel);
@@ -275,6 +283,7 @@ WorkflowDialog::WorkflowDialog(const QStringList& selectedFiles, QWidget* parent
   connect(executeJobButton_, &QPushButton::clicked, this, &WorkflowDialog::executeSelectedJob);
   connect(removeJobButton_, &QPushButton::clicked, this, &WorkflowDialog::removeSelectedJob);
   connect(jobsList_, &QListWidget::itemSelectionChanged, this, &WorkflowDialog::refreshButtons);
+  connect(jobsList_, &QListWidget::itemSelectionChanged, this, &WorkflowDialog::showSelectedJobEvents);
   connect(planButton_, &QPushButton::clicked, this, [this] { begin(false); });
   connect(runButton_, &QPushButton::clicked, this, [this] { begin(true); });
   connect(stopButton_, &QPushButton::clicked, this, [this] {
@@ -558,6 +567,38 @@ void WorkflowDialog::queueWorkflow() {
     WorkflowJobService jobs;
     return jobs.enqueue(document, paths);
   }));
+}
+
+void WorkflowDialog::showSelectedJobEvents() {
+  if (!jobEventsView_) return;
+  jobEventsView_->clear();
+  if (!jobsList_->currentItem()) return;
+  const QString id = jobsList_->currentItem()->data(Qt::UserRole).toString();
+  const auto response = jobs_.events(id);
+  if (!response.ok) {
+    jobEventsView_->setPlainText("Timeline is unavailable: " + response.error);
+    return;
+  }
+  const auto document = QJsonDocument::fromJson(response.output.toUtf8()).object();
+  QStringList lines;
+  for (const auto& raw : document.value("events").toArray()) {
+    const auto event = raw.toObject();
+    const auto timestamp = event.value("at").toString();
+    const auto type = event.value("event").toString();
+    const auto node = event.value("node_id").toString();
+    const int attempt = event.value("attempt").toInt();
+    QString line = QString("%1  |  %2  |  try %3")
+        .arg(timestamp, type).arg(attempt);
+    if (!node.isEmpty()) line += "  |  " + node;
+    if (event.contains("completed_operations") && event.contains("total_operations")) {
+      line += QString("  |  %1/%2")
+          .arg(event.value("completed_operations").toInt())
+          .arg(event.value("total_operations").toInt());
+    }
+    lines.append(line);
+  }
+  jobEventsView_->setPlainText(
+      lines.isEmpty() ? "No saved events for this older job." : lines.join("\n"));
 }
 
 void WorkflowDialog::refreshJobs() {

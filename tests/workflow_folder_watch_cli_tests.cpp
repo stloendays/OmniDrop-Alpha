@@ -96,5 +96,25 @@ int main(int argc, char** argv) {
   const auto history = record.value("jobs").toArray();
   assert(history.size() == 1);
   assert(history.first().toObject().value("status").toString() == "completed");
+
+  // The CLI must query the same durable event timeline as the application
+  // service; it must not reconstruct history from transient stdout logs.
+  const QString jobId = completed.value("job_id").toString();
+  assert(!jobId.isEmpty());
+  QProcess timeline;
+  timeline.setProgram(QString::fromLocal8Bit(argv[1]));
+  timeline.setArguments({"workflow", "events", jobId});
+  timeline.setProcessEnvironment(environment);
+  timeline.start();
+  assert(timeline.waitForStarted(5000));
+  assert(timeline.waitForFinished(8000));
+  assert(timeline.exitCode() == 0);
+  const auto payload = QJsonDocument::fromJson(timeline.readAllStandardOutput());
+  assert(payload.isObject());
+  const auto eventList = payload.object().value("events").toArray();
+  assert(!eventList.isEmpty());
+  assert(eventList.first().toObject().value("event").toString() == "job.queued");
+  assert(eventList.last().toObject().value("event").toString() == "job.completed");
+  assert(payload.object().value("job_id").toString() == jobId);
   return 0;
 }

@@ -22,11 +22,34 @@ namespace {
 
 constexpr qint64 kMaxStateBytes = 6 * 1024 * 1024;
 constexpr int kMaxJobs = 100;
+constexpr int kMaxEventsPerJob = 160;
 const QRegularExpression kJobId("^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$");
 
 QString now() {
   return QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
 }
+
+QJsonObject makeEvent(const QString& kind, int attempt,
+                      const QString& node = {}, int completed = -1,
+                      int total = -1) {
+  QJsonObject event{
+      {"at", now()}, {"event", kind}, {"attempt", attempt},
+  };
+  if (!node.isEmpty()) event.insert("node_id", node);
+  if (completed >= 0) event.insert("completed_operations", completed);
+  if (total >= 0) event.insert("total_operations", total);
+  return event;
+}
+
+void appendEvent(QJsonObject& job, const QJsonObject& event) {
+  if (event.isEmpty()) return;
+  auto entries = job.value("events").toArray();
+  entries.append(event);
+  // Bounds keep event history useful without growing persisted Jobs unboundedly.
+  while (entries.size() > kMaxEventsPerJob) entries.removeFirst();
+  job.insert("events", entries);
+}
+
 
 WorkerResult okResult(const QJsonObject& value) {
   QJsonObject payload = value;
@@ -160,6 +183,7 @@ WorkerResult WorkflowJobService::enqueue(
       {"inputs", inputs},
       {"last_error", ""},
       {"last_result", QJsonObject{}},
+      {"events", QJsonArray{makeEvent("job.queued", 0)}},
   };
   jobs.append(job);
   root.insert("jobs", jobs);
@@ -188,6 +212,7 @@ WorkerResult WorkflowJobService::listJobs() const {
       if (runLock.tryLock(0)) {
         job.insert("status", "interrupted");
         job.insert("last_error", "The previous process exited before completing this job.");
+        appendEvent(job, makeEvent("job.interrupted", job.value("attempts").toInt()));
         job.insert("updated_at", now());
         jobs.replace(index, job);
         changed = true;
@@ -201,6 +226,29 @@ WorkerResult WorkflowJobService::listJobs() const {
     if (!error.isEmpty()) return errorResult(error);
   }
   return okResult(QJsonObject{{"schema_version", 1}, {"jobs", visible}});
+}
+
+WorkerResult WorkflowJobService::events(const QString& id) const {
+  if (!kJobId.match(id).hasMatch()) return errorResult("Invalid workflow job ID.");
+  QLockFile lock(storagePath_ + ".lock");
+  if (!lockForFile(storagePath_, lock)) return errorResult("Workflow job store is locked.");
+  QString error;
+  const auto root = readStore(&error);
+  if (!error.isEmpty()) return errorResult(error);
+
+  for (const auto& value : root.value("jobs").toArray()) {
+    const auto job = value.toObject();
+    if (job.value("id").toString() != id) continue;
+    return okResult(QJsonObject{
+        {"schema_version", 1},
+        {"job_id", id},
+        {"status", job.value("status")},
+        {"attempts", job.value("attempts")},
+        // Old persisted v2.3 entries had no events. Return an empty timeline.
+        {"events", job.value("events").toArray()},
+    });
+  }
+  return errorResult("Workflow job was not found.");
 }
 
 WorkerResult WorkflowJobService::execute(
@@ -238,6 +286,7 @@ WorkerResult WorkflowJobService::execute(
       job.insert("attempts", job.value("attempts").toInt(0) + 1);
       job.insert("completed_operations", 0);
       job.insert("last_error", "");
+      appendEvent(job, makeEvent("job.started", job.value("attempts").toInt()));
       job.insert("updated_at", now());
       jobs.replace(i, job);
       selected = job;
@@ -249,7 +298,8 @@ WorkerResult WorkflowJobService::execute(
     if (!error.isEmpty()) return errorResult(error);
   }
 
-  auto update = [this, &id](const QJsonObject& changes) {
+  auto update = [this, &id](const QJsonObject& changes,
+                            const QJsonObject& event = QJsonObject{}) {
     QLockFile lock(storagePath_ + ".lock");
     if (!lockForFile(storagePath_, lock)) return;
     QString error;
@@ -262,6 +312,7 @@ WorkerResult WorkflowJobService::execute(
       for (auto it = changes.begin(); it != changes.end(); ++it) {
         job.insert(it.key(), it.value());
       }
+      appendEvent(job, event);
       job.insert("updated_at", now());
       jobs.replace(i, job);
       root.insert("jobs", jobs);
@@ -279,11 +330,25 @@ WorkerResult WorkflowJobService::execute(
   const auto response = workflows_.runStreaming(
       definition, paths,
       [&](const QJsonObject& event) {
-        if (event.value("event").toString() == "workflow.action_completed") {
-          update(QJsonObject{
-              {"completed_operations", event.value("completed_operations")},
-              {"total_operations", event.value("total_operations")},
-          });
+        const QString kind = event.value("event").toString();
+        // Persist only typed, path-free operational fields. Never capture the
+        // original worker payload, which may later contain user data.
+        if (kind == "workflow.action_completed" ||
+            kind == "workflow.node_started" ||
+            kind == "workflow.node_completed" ||
+            kind == "workflow.failed" ||
+            kind == "workflow.stopped") {
+          const QJsonObject changes = kind == "workflow.action_completed"
+              ? QJsonObject{
+                  {"completed_operations", event.value("completed_operations")},
+                  {"total_operations", event.value("total_operations")},
+                }
+              : QJsonObject{};
+          update(changes, makeEvent(
+              kind, selected.value("attempts").toInt(),
+              event.value("node_id").toString(),
+              event.value("completed_operations").toInt(-1),
+              event.value("total_operations").toInt(-1)));
         }
         if (onEvent) onEvent(event);
       },
@@ -299,7 +364,9 @@ WorkerResult WorkflowJobService::execute(
       {"last_error", response.ok ? QString{} : response.error},
       {"completed_operations", report.value("completed_operations")},
       {"total_operations", report.value("total_operations")},
-  });
+  }, makeEvent(QStringLiteral("job.") + state, selected.value("attempts").toInt(),
+               {}, report.value("completed_operations").toInt(-1),
+               report.value("total_operations").toInt(-1)));
   return response;
 }
 
