@@ -6,12 +6,18 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QElapsedTimer>
+#include <QEventLoop>
 #include <QFile>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QTableWidget>
 #include <QTemporaryDir>
+#include <QTimer>
+
+#include <functional>
 
 #include <cassert>
 
@@ -68,5 +74,58 @@ int main(int argc, char** argv) {
     assert(button->text() != "Apply");
     assert(button->text() != "Rename");
   }
+
+  // Exercise the complete opt-in GUI path with a controlled confirmation.
+  // The test runs in QT_QPA_PLATFORM=offscreen and never alters user files.
+  qputenv("OMNIDROP_RENAME_JOURNAL_DIR",
+          QFile::encodeName(temp.filePath("journal")));
+  regex->setChecked(false);
+  find->setText("sample");
+  replace->setText("draft");
+  assert(applyButton->isEnabled());
+  assert(!QFile::exists(temp.filePath("draft.txt")));
+
+  auto awaitState = [&](const QString& confirmationTitle,
+                        const std::function<bool()>& complete) {
+    QEventLoop loop;
+    QElapsedTimer elapsed;
+    elapsed.start();
+    QTimer poll;
+    QObject::connect(&poll, &QTimer::timeout, &loop, [&] {
+      for (QWidget* widget : QApplication::topLevelWidgets()) {
+        auto* question = qobject_cast<QMessageBox*>(widget);
+        if (question && question->isVisible() &&
+            question->windowTitle() == confirmationTitle) {
+          question->done(QMessageBox::Yes);
+        }
+      }
+      if (complete() || elapsed.elapsed() > 20000) loop.quit();
+    });
+    poll.start(25);
+    loop.exec();
+    return complete();
+  };
+
+  applyButton->click();
+  assert(awaitState("Confirm batch rename", [&] {
+    return summary->text().contains("filenames changed") ||
+           summary->text().contains("Rename incomplete");
+  }));
+  assert(summary->text().contains("filenames changed"));
+  assert(!QFile::exists(source));
+  assert(QFile::exists(temp.filePath("draft.txt")));
+  assert(undoButton->isEnabled());
+
+  undoButton->click();
+  assert(awaitState("Undo batch rename", [&] {
+    return summary->text().contains("Original filenames restored") ||
+           summary->text().contains("Undo refused");
+  }));
+  assert(summary->text().contains("Original filenames restored"));
+  assert(QFile::exists(source));
+  assert(!QFile::exists(temp.filePath("draft.txt")));
+  QFile afterUndo(source);
+  assert(afterUndo.open(QIODevice::ReadOnly));
+  assert(afterUndo.readAll() == "original\n");
   return 0;
 }
