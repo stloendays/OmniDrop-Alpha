@@ -74,12 +74,18 @@ int main(int argc, char** argv) {
       executable, {"rename-status", id}, journalDirectory, 0));
   assert(status.value("state").toString() == "prepared");
 
-  // Unsafe/implicit execution cannot proceed.
+  // The mutating command must reject an omitted --confirm flag.
+  run(executable, {"rename-apply", id}, journalDirectory, 1);
+  assert(QFile::exists(a) && QFile::exists(b));
+  assert(!QFile::exists(temp.filePath("archive-A.txt")));
+
   assert(run(executable, {"rename-apply", id, "--confirm"},
              journalDirectory, 0).contains("\"committed\""));
   assert(QFile::exists(temp.filePath("archive-A.txt")));
   assert(!QFile::exists(a) && !QFile::exists(b));
 
+  run(executable, {"rename-undo", id}, journalDirectory, 1);
+  assert(QFile::exists(temp.filePath("archive-A.txt")));
   const auto reversed = decode(run(
       executable, {"rename-undo", id, "--confirm"}, journalDirectory, 0));
   assert(reversed.value("state").toString() == "undone");
