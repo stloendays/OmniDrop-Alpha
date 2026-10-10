@@ -122,7 +122,11 @@ int main(int argc, char** argv) {
   assert(!QFile::exists(source));
   assert(QFile::exists(temp.filePath("draft.txt")));
 
-  undoButton->click();
+  // Undo opens its confirmation dialog synchronously. Dispatch the click via
+  // the event loop so the test's modal-dialog responder is already active.
+  // Clicking directly here deadlocks the offscreen Windows CI test before
+  // awaitState can install its polling timer.
+  QTimer::singleShot(0, undoButton, [undoButton] { undoButton->click(); });
   assert(awaitState("Undo batch rename", [&] {
     return summary->text().contains("Original filenames restored") ||
            summary->text().contains("Undo refused");
