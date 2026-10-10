@@ -182,6 +182,17 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
     add_test(NAME omnidrop_graph_view_tests COMMAND omnidrop_graph_view_tests)
     set_tests_properties(omnidrop_graph_view_tests PROPERTIES
       ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    add_executable(omnidrop_rename_preview_gui_tests
+      tests/rename_preview_dialog_tests.cpp
+      src/gui/rename_preview_dialog.cpp
+      src/gui/rename_preview_dialog.hpp)
+    target_link_libraries(omnidrop_rename_preview_gui_tests PRIVATE
+      omnidrop_core Qt6::Widgets)
+    add_test(NAME omnidrop_rename_preview_gui_tests
+             COMMAND omnidrop_rename_preview_gui_tests)
+    set_tests_properties(omnidrop_rename_preview_gui_tests PROPERTIES
+      ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
   endif()
 
   if(TARGET omnidrop_desktop)
