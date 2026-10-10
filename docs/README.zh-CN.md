@@ -12,9 +12,9 @@
 
 <p align="center"><sub>界面预览 · 实际布局以所安装的 Alpha 版本为准。</sub></p>
 
-**当前阶段：v0.3.0 Alpha（Windows x64 预览版）**
+**当前阶段：v0.4.0 Alpha（Windows x64 预览版）**
 
-[下载 Windows Alpha](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.3.0) · [工作流文档](WORKFLOWS.md) · [功能清单](ACTIONS.md) · [开发路线图](ROADMAP.md) · [提交问题](https://github.com/stloendays/OmniDrop-Alpha/issues)
+[下载 Windows Alpha](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.4.0) · [工作流文档](WORKFLOWS.md) · [功能清单](ACTIONS.md) · [开发路线图](ROADMAP.md) · [提交问题](https://github.com/stloendays/OmniDrop-Alpha/issues)
 
 ## OmniDrop 有什么特别之处？
 
@@ -33,23 +33,23 @@
 | --- | --- |
 | 文本与开发文件 | 规范化文本、去除重复行、JSON/XML 格式化、计算 SHA-256 |
 | 重复文件检测 | 对选定文件按大小与 SHA-256 核对重复内容，生成不删除原文件的 JSON 报告 |
-| 批量重命名 | 预览查找替换、正则与冲突；开发版增加单独确认的安全执行、操作日志及条件撤销 |
+| 批量重命名 | 预览查找替换及冲突，明确确认后安全执行；支持经过验证的撤销、事务查询与异常恢复 |
 | 图片 | 压缩、转换 WebP、去元数据、旋转 90°、按 50% 缩放 |
 | PDF | 提取文本与内嵌图片、分割页面、合并多个 PDF、旋转页面 |
 | ZIP | 检查内容、安全解压 |
-| 批处理与 Workflow | 多文件处理、可视化 DAG、实时进度、文件间安全停止、持久化 Jobs |
+| 批处理与 Workflow | 多文件处理、可视化 DAG、进度与停止、持久化 Jobs 和可查询事件时间线 |
 | 翻译（可选） | 离线 Argos；或经用户明确同意的 MyMemory、LibreTranslate、DeepL API Free |
 | 语音（可选） | 额外安装并校验 Piper 语音模型后，将文本或字幕转为本地 WAV |
 
-**版本说明：** 以上功能以当前 `main` 源码为准，`v0.3.0` Alpha 发布后新增的功能需等待新的构建或下一次正式测试包发布。
+**版本说明：** 本页介绍 `v0.4.0` Alpha 的目标发布功能；后续 `main` 新增功能只有经过测试并打入下一版软件包后才会随下载版提供。
 
 实际可用性取决于本机的依赖、文件类型和已安装的可选组件。**尚未支持的 Office 文件布局级编辑、OCR、完整视频编辑和自动更新不能当作已完成功能。** 请参阅 [Action 清单](ACTIONS.md)。
 
-[批量重命名预览说明](BATCH_RENAME_PREVIEW.md)
+[批量重命名预览说明](BATCH_RENAME_PREVIEW.md) · [重命名事务及恢复](RENAME_TRANSACTIONS.md) · [工作流事件时间线](WORKFLOW_TIMELINE.md)
 
 ## Windows 快速开始
 
-1. 打开 [v0.3.0 Release](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.3.0)，下载 `OmniDrop-0.3.0-windows-dev.zip` 和同名 `.sha256` 校验文件。
+1. 打开 [v0.4.0 Release](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.4.0)，下载 `OmniDrop-0.4.0-windows-dev.zip` 和同名 `.sha256` 校验文件。
 2. 对比 ZIP 的 SHA-256，解压到专用文件夹，例如 `C:\Apps\OmniDrop`（不要直接解压到 Git 工作区）。
 3. 无需单独安装 Python：软件包已内置经过 SHA-256 验证的 CPython 3.13.16。高级用户仍可通过 `OMNIDROP_PYTHON` 指定外部解释器。
 4. 双击 `OmniDrop.exe`，拖入文件并选择推荐操作。
@@ -107,4 +107,4 @@ New output files + Jobs history
 
 你可以提出使用体验、功能建议或提交 PR。欢迎对 Windows C++ / Qt、Python 文件处理、自动化工作流、测试和文档感兴趣的贡献者。
 
-**授权协议：** [MIT](../LICENSE)。图像展示位已预留，将在后续有可核验的软件截图后添加。
+**授权协议：** [MIT](../LICENSE)。软件的实际界面以下载版本为准。

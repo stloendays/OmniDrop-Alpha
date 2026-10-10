@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.3.0"><strong>Download Windows Alpha</strong></a>
+  <a href="https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.4.0"><strong>Download Windows Alpha</strong></a>
   · <a href="#quick-start">Quick start</a>
   · <a href="#what-can-it-do">Features</a>
   · <a href="#workflows">Workflows</a>
@@ -29,9 +29,9 @@
 <p align="center"><sub>Interface preview · exact layout may vary by installed version.</sub></p>
 
 > [!IMPORTANT]
-> **Early Alpha · v0.3.0.** The Windows x64 portable ZIP includes Qt, a verified isolated Python 3.13.16 interpreter, and the core worker libraries. No system Python installation is required. It is still **not a Windows Authenticode-signed installer**; provenance is independently verified through GitHub's signed attestations. See [release notes](docs/releases/v0.3.0.md).
+> **Early Alpha · v0.4.0.** The Windows x64 portable ZIP includes Qt, a verified isolated Python 3.13.16 interpreter, and the core worker libraries. No system Python installation is required. It is still **not a Windows Authenticode-signed installer**; provenance is independently verified through GitHub's signed attestations. See [release notes](docs/releases/v0.4.0.md).
 
-**Runtime and integrity:** OmniDrop v0.3.0 ships a pinned embedded Python
+**Runtime and integrity:** OmniDrop v0.4.0 ships a pinned embedded Python
 runtime and SHA-256-verified Windows packages. The publishing workflow also
 verifies signed GitHub build provenance against the exact source commit.
 Authenticode publisher identity still requires a trusted code-signing
@@ -54,22 +54,22 @@ Unlike a general-purpose office suite, OmniDrop concentrates on the file operati
 | --- | --- |
 | **Text & developer files** | Normalize whitespace/line endings, remove duplicate lines, format JSON/XML, calculate SHA-256 |
 | **Duplicate file report** | Check an explicit selection by size and SHA-256; save advisory JSON without deleting anything |
-| **Batch rename** | Preview regex/literal rules without modification; development builds offer separately confirmed, journaled execution and verified Undo |
+| **Batch rename** | Preview rules, explicitly confirm verified same-folder renames, and undo or recover interrupted transactions without overwriting files |
 | **Images** | Compress, convert to WebP, remove metadata, rotate 90° and resize to 50% |
 | **PDFs** | Extract text and embedded images, split pages, merge PDFs in selected order and rotate pages |
 | **ZIP archives** | Inspect archive contents and safely extract files |
 | **Batch operations** | Process multiple selected files with per-file progress and cooperative stop |
 | **Workflow Builder** | Create, edit, preview, save and run DAGs with branches and joins |
-| **Workflow Jobs** | Save a local queue, inspect status and explicitly retry stopped/failed/interrupted jobs |
+| **Workflow Jobs** | Save a local queue, inspect persisted job event timelines, and explicitly retry stopped/failed/interrupted jobs |
 | **Folder Watch** | Opt in to one folder, process stable new files and exclude generated outputs |
 | **Translation (optional)** | Offline Argos or explicitly consented MyMemory / LibreTranslate / DeepL API Free |
 | **Speech (optional)** | Convert text/subtitles to WAV after installing a verified Piper voice pack and inference runtime |
 
-**Release note:** The feature matrix describes the current `main` source tree. Features added after the `v0.3.0` Alpha tag are available only in development builds until a newer tested package is released.
+**Release note:** The feature matrix describes the current `main` source tree. Features added after the `v0.4.0` Alpha tag are available only in development builds until a newer tested package is released.
 
 **Reality-based availability:** OmniDrop distinguishes *planned*, *implemented but unavailable*, and *available here* actions. Optional processors, language packs and voice models are not installed silently.
 
-[Batch rename preview](docs/BATCH_RENAME_PREVIEW.md) · [Full Action IDs and status](docs/ACTIONS.md) · [Translation and privacy](docs/TRANSLATION.md) · [Offline voice packs](docs/VOICE_PACKS.md)
+[Batch rename preview](docs/BATCH_RENAME_PREVIEW.md) · [Verified rename transactions](docs/RENAME_TRANSACTIONS.md) · [Full Action IDs and status](docs/ACTIONS.md) · [Translation and privacy](docs/TRANSLATION.md) · [Offline voice packs](docs/VOICE_PACKS.md)
 
 <p align="center"><sub>The file workspace detects available local actions and keeps source files unchanged.</sub></p>
 
@@ -77,12 +77,12 @@ Unlike a general-purpose office suite, OmniDrop concentrates on the file operati
 
 ### Download for Windows
 
-1. Open **[OmniDrop v0.3.0 Alpha](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.3.0)** and get `OmniDrop-0.3.0-windows-dev.zip` **plus** its `.sha256` file.
+1. Open **[OmniDrop v0.4.0 Alpha](https://github.com/stloendays/OmniDrop-Alpha/releases/tag/v0.4.0)** and get `OmniDrop-0.4.0-windows-dev.zip` **plus** its `.sha256` file.
 2. Compare the archive's SHA-256 against the companion checksum. In PowerShell:
 
    ```powershell
-   Get-FileHash .\OmniDrop-0.3.0-windows-dev.zip -Algorithm SHA256
-   Get-Content .\OmniDrop-0.3.0-windows-dev.zip.sha256
+   Get-FileHash .\OmniDrop-0.4.0-windows-dev.zip -Algorithm SHA256
+   Get-Content .\OmniDrop-0.4.0-windows-dev.zip.sha256
    ```
 
 3. Unzip into a dedicated folder outside a Git checkout, for example `C:\Apps\OmniDrop`.
@@ -91,7 +91,7 @@ Unlike a general-purpose office suite, OmniDrop concentrates on the file operati
 
 The portable package bundles Qt, an isolated Python 3.13 interpreter, and selected Python worker dependencies. Optional translation language packs and voice models are separate add-ons. Windows may warn about the unsigned Authenticode executable.
 
-**Troubleshooting:** from the extracted folder, run `.\omnidrop-cli.exe worker-ping` to check whether the Python worker can start. See [release limitations](docs/releases/v0.3.0.md).
+**Troubleshooting:** from the extracted folder, run `.\omnidrop-cli.exe worker-ping` to check whether the Python worker can start. See [release limitations](docs/releases/v0.4.0.md).
 
 ### Three ways to use it
 
@@ -133,7 +133,7 @@ Replace `C:\Files\notes.txt` with a real text file. The GUI also offers **Previe
 
 **Important retry behavior:** Jobs retry runs the **whole workflow again** and retains previous output files. It does *not* resume from an arbitrary saved node. Folder watching does not auto-start when Windows boots.
 
-[Workflow guide](docs/WORKFLOWS.md) · [Jobs and retries](docs/WORKFLOW_JOBS.md) · [Folder Watch safety](docs/WORKFLOW_WATCH.md) · [Example workflows](workflows/examples)
+[Workflow guide](docs/WORKFLOWS.md) · [Jobs and retries](docs/WORKFLOW_JOBS.md) · [Jobs event timeline](docs/WORKFLOW_TIMELINE.md) · [Folder Watch safety](docs/WORKFLOW_WATCH.md) · [Example workflows](workflows/examples)
 
 ![OmniDrop Jobs UI preview showing local job history and opt-in folder watching](assets/readme/jobs-preview.svg)
 
@@ -191,7 +191,7 @@ OmniDrop is being built in public. Priorities include:
 - Better workflow history, validated recovery, notifications and scheduling.
 - An extensible plugin / agent integration boundary with stable callable interfaces.
 
-These are **roadmap items, not promises of features in v0.3.0**. See the [detailed roadmap](docs/ROADMAP.md) and [open issues](https://github.com/stloendays/OmniDrop-Alpha/issues).
+These are **roadmap items, not promises of features in v0.4.0**. See the [detailed roadmap](docs/ROADMAP.md) and [open issues](https://github.com/stloendays/OmniDrop-Alpha/issues).
 
 ## Contributing and community
 
@@ -199,4 +199,4 @@ Bug reports, use cases, documentation fixes and small focused PRs are welcome. P
 
 OmniDrop is released under the **[MIT License](LICENSE)**.
 
-<sub>Made for useful local workflows. Illustrations and real product screenshots will be added once verified assets are ready.</sub>
+<sub>Made for useful local workflows. Packaged UI may differ slightly from repository previews.</sub>
