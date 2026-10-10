@@ -5,6 +5,7 @@
 #include "gui/rename_preview_dialog.hpp"
 
 #include <QApplication>
+#include <QAbstractButton>
 #include <QCheckBox>
 #include <QElapsedTimer>
 #include <QEventLoop>
@@ -97,7 +98,9 @@ int main(int argc, char** argv) {
         auto* question = qobject_cast<QMessageBox*>(widget);
         if (question && question->isVisible() &&
             question->windowTitle() == confirmationTitle) {
-          question->done(QMessageBox::Yes);
+          auto* yes = question->button(QMessageBox::Yes);
+          assert(yes);
+          yes->click();  // Exercise a real QMessageBox button, not QDialog::done().
         }
       }
       if (complete() || elapsed.elapsed() > 20000) loop.quit();
@@ -109,13 +112,15 @@ int main(int argc, char** argv) {
 
   applyButton->click();
   assert(awaitState("Confirm batch rename", [&] {
-    return summary->text().contains("filenames changed") ||
-           summary->text().contains("Rename incomplete");
+    return undoButton->isEnabled() ||
+           summary->text().startsWith("Rename incomplete") ||
+           summary->text().startsWith("Plan saved") ||
+           summary->text().startsWith("File selection changed");
   }));
-  assert(summary->text().contains("filenames changed"));
+  assert(undoButton->isEnabled());  // Only a committed rename enables Undo.
+  assert(summary->text().contains("Undo is available"));
   assert(!QFile::exists(source));
   assert(QFile::exists(temp.filePath("draft.txt")));
-  assert(undoButton->isEnabled());
 
   undoButton->click();
   assert(awaitState("Undo batch rename", [&] {
