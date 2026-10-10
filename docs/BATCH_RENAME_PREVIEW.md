@@ -17,7 +17,15 @@ No PowerToys code, screenshots, binaries or UI assets are copied.
 5. Review each filename's **Ready**, **Conflict**, or **Unchanged** status.
    Use **Choose files...** to adjust the selection.
 
-The dialog has no Apply/Rename button in this phase. Closing it changes nothing.
+The preview remains strictly read-only. In development builds, the separate
+**Prepare & apply...** action writes a verified undo journal and asks for an
+additional explicit confirmation before modifying filenames. **Undo last batch**
+requires every renamed file to be unchanged and the original name to be free.
+Closing the dialog while only previewing changes nothing. The existing
+`rename-preview` CLI command remains read-only.
+
+See [Safe rename transactions](RENAME_TRANSACTIONS.md) for recovery, privacy,
+limitations, and CLI commands.
 
 ## CLI usage
 
