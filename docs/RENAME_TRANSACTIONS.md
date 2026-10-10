@@ -33,31 +33,34 @@ The transaction implementation is intentionally conservative:
 
 After reviewing the on-screen preview, create a persistent plan:
 
-\`\`\`powershell
+```powershell
 .\omnidrop-cli.exe rename-preview --find IMG_ --replace photo- C:\Photos\IMG_01.png C:\Photos\IMG_02.png
 .\omnidrop-cli.exe rename-prepare --find IMG_ --replace photo- C:\Photos\IMG_01.png C:\Photos\IMG_02.png
-\`\`\`
+```
 
-The second command returns a \`transaction_id\`, state \`prepared\` and the exact
-original/target paths. Review it carefully before confirming:
+The second command returns a `transaction_id`, state `prepared` and the exact
+original/target paths. A restarted GUI or CLI can locate retained IDs through
+`rename-list`, which does not reveal private file paths. Review the plan
+carefully before confirming:
 
-\`\`\`powershell
+```powershell
+.\omnidrop-cli.exe rename-list
 .\omnidrop-cli.exe rename-status <transaction-id>
 .\omnidrop-cli.exe rename-apply <transaction-id> --confirm
 .\omnidrop-cli.exe rename-undo <transaction-id> --confirm
-\`\`\`
+```
 
 If a process terminates unexpectedly during a transaction, inspect
-\`rename-status\` and the file paths. Only for states \`committing\`, \`undoing\`
-or \`recovery_required\`, restore the verified original filenames:
+`rename-status` and the file paths. Only for states `committing`, `undoing`
+or `recovery_required`, restore the verified original filenames:
 
-\`\`\`powershell
+```powershell
 .\omnidrop-cli.exe rename-recover <transaction-id> --confirm
-\`\`\`
+```
 
-Commands emit a JSON object with \`schema_version: 1\`,
-\`operation: "rename.transaction"\`, \`transaction_id\`, \`state\`, \`ok\`,
-\`error\` and affected path pairs. Nonzero exit codes indicate failures.
+Commands emit a JSON object with `schema_version: 1`,
+`operation: "rename.transaction"`, `transaction_id`, `state`, `ok`,
+`error` and affected path pairs. Nonzero exit codes indicate failures.
 Unchanged files in a preview are excluded from the prepared rename operation.
 
 **No background Jobs, watched folders, cloud operations or Workflow actions
@@ -66,8 +69,8 @@ automatically invoke these mutating commands.** Always review the transaction.
 ## Journal storage and privacy
 
 The default path is the user's standard data directory under
-\`OmniDrop/rename-transactions\`, or the explicit
-\`OMNIDROP_RENAME_JOURNAL_DIR\` environment variable for isolated tests.
+`OmniDrop/rename-transactions`, or the explicit
+`OMNIDROP_RENAME_JOURNAL_DIR` environment variable for isolated tests.
 
 Individual journal records are written with QSaveFile's atomic replacement.
 OmniDrop attempts owner-only filesystem permissions. Records contain absolute
@@ -79,13 +82,13 @@ not silently deleted by Undo/Recover so that failures remain inspectable.
 A multi-file batch cannot be made wholly atomic using separate OS rename
 calls: there is always a small interval between files. When errors occur,
 OmniDrop attempts to restore verified originals and records
-\`recovery_required\` if a safe restoration is blocked. Full crash recovery
+`recovery_required` if a safe restoration is blocked. Full crash recovery
 requires an explicit command rather than automatically modifying filesystem
 state at startup.
 
 ## Compatibility
 
-The existing \`rename-preview\` command, Action IDs, Python worker v1,
-\`.omniworkflow.json\` schema, release packaging and existing Jobs stay
+The existing `rename-preview` command, Action IDs, Python worker v1,
+`.omniworkflow.json` schema, release packaging and existing Jobs stay
 unchanged. The transaction commands are additive, and Windows/Linux CTest and
 packaged CLI smoke tests are mandatory before merge.
