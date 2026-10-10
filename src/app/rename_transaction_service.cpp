@@ -10,9 +10,12 @@
 #include <QLockFile>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QSet>
+#include <QVector>
 #include <QStandardPaths>
 #include <QUuid>
 
+#include <string>
 #include <utility>
 
 #ifdef Q_OS_WIN
@@ -112,6 +115,12 @@ bool fingerprint(const QString& path, Fingerprint* result, QString* error) {
 
 bool matchesFingerprint(const QString& path, const QJsonObject& record,
                         QString* error) {
+  const auto canonicalParent = QDir(QFileInfo(path).absolutePath()).canonicalPath();
+  if (canonicalParent.isEmpty() ||
+      canonicalParent != record.value("parent_canonical").toString()) {
+    *error = "A parent directory changed since the plan was prepared.";
+    return false;
+  }
   Fingerprint actual;
   if (!fingerprint(path, &actual, error)) return false;
   if (actual.size != static_cast<qint64>(record.value("size_bytes").toDouble(-1)) ||
@@ -225,6 +234,8 @@ QJsonObject readJournal(const QString& directory, const QString& id,
     *error = "Rename journal schema or row count is invalid.";
     return {};
   }
+  QSet<QString> sources;
+  QSet<QString> targets;
   for (const auto& item : rows) {
     if (!item.isObject()) {
       *error = "A rename journal entry is not an object.";
@@ -233,7 +244,10 @@ QJsonObject readJournal(const QString& directory, const QString& id,
     const auto row = item.toObject();
     const QString source = row.value("source").toString();
     const QString target = row.value("target").toString();
-    if (!QDir::isAbsolutePath(source) || !QDir::isAbsolutePath(target) ||
+    const QString parent = row.value("parent_canonical").toString();
+    if (!QDir::isAbsolutePath(parent) ||
+        parent != QFileInfo(source).absolutePath() ||
+        !QDir::isAbsolutePath(source) || !QDir::isAbsolutePath(target) ||
         QDir::cleanPath(source) != source || QDir::cleanPath(target) != target ||
         source == target ||
         QFileInfo(source).absolutePath() != QFileInfo(target).absolutePath() ||
@@ -242,6 +256,20 @@ QJsonObject readJournal(const QString& directory, const QString& id,
         row.value("size_bytes").toDouble(-1) > kMaxInputBytes ||
         row.value("modified_ms").toDouble(-1) < 0) {
       *error = "Rename journal contains an unsafe path or invalid fingerprint.";
+      return {};
+    }
+    const QString sourceKey = source.toCaseFolded();
+    const QString targetKey = target.toCaseFolded();
+    if (sources.contains(sourceKey) || targets.contains(targetKey)) {
+      *error = "Rename journal contains duplicate sources or targets.";
+      return {};
+    }
+    sources.insert(sourceKey);
+    targets.insert(targetKey);
+  }
+  for (const auto& source : sources) {
+    if (targets.contains(source)) {
+      *error = "Rename journal tries to rename onto another selected source.";
       return {};
     }
   }
@@ -362,9 +390,15 @@ RenameTransactionResult RenameTransactionService::prepare(
     if (totalBytes > kMaxInputBytes)
       return failure("Selected files exceed the 512 MiB transaction limit.");
 
+    const auto parent = QDir(QFileInfo(candidate.sourcePath).absolutePath())
+                            .canonicalPath();
+    if (parent.isEmpty())
+      return failure("Cannot resolve the original parent directory.");
+
     rows.append(QJsonObject{
         {"source", candidate.sourcePath},
         {"target", candidate.targetPath},
+        {"parent_canonical", parent},
         {"size_bytes", stamp.size},
         {"modified_ms", stamp.modifiedMs},
         {"sha256", stamp.sha256},
