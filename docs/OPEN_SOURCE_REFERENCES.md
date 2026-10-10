@@ -9,7 +9,7 @@ user files and pass Windows/Linux CI.
 | --- | --- | --- | --- |
 | [Stirling-PDF](https://github.com/Stirling-Tools/Stirling-PDF) | PDF image extraction, batch document operations | **Implemented** `pdf.extract_images` | Independent pypdf/Pillow worker; safe generated output filenames; bounded output |
 | [Czkawka](https://github.com/qarmin/czkawka) | Fast size/hash duplicate scan | **Implemented** `file.find_duplicates` | Independent Python standard-library size + SHA-256 report; no automatic removal |
-| [PowerToys / PowerRename](https://github.com/microsoft/PowerToys) | Search/replace rename, regex, before/after preview and undo | Planned P1 | Start with a dry-run and conflict detection; require explicit confirmation and durable rollback journal before any mutation |
+| [PowerToys / PowerRename](https://github.com/microsoft/PowerToys) | Search/replace rename, regex, before/after preview and undo | **Preview implemented** (execution/undo planned) | Independent C++ shared service, Qt dialog and CLI; conservative conflicts; no filesystem mutation |
 | [Files](https://github.com/files-community/Files) | Quick preview, keyboard commands, tags and dual-pane exploration | Planned P2 | Prefer a lightweight read-only preview and reliable action search over rebuilding Explorer |
 | [Docling](https://github.com/docling-project/docling) | Structured PDF/Office parsing, tables, OCR with offline support | Planned P2, optional adapter | Gated model/runtime install with clear privacy/licensing and file-size controls; no default heavyweight models |
 | [Czkawka](https://github.com/qarmin/czkawka) | Perceptual similarity scan and caching | Planned P2 | Optional image hashing with tunable threshold and manual review; do not auto-delete |
