@@ -140,21 +140,48 @@ int main(int argc, char** argv) {
   // updated. Recovery checks disk + file hashes, not a fragile step index.
   const QString interruptedSource = root + "/draft-interrupted.txt";
   const QString interruptedTarget = root + "/final-interrupted.txt";
+  const QString secondInterruptedSource = root + "/draft-still-here.txt";
+  const QString secondInterruptedTarget = root + "/final-still-here.txt";
   write(interruptedSource, "recover me");
-  const auto interrupted = service.prepare({interruptedSource}, options);
+  write(secondInterruptedSource, "still here");
+  const auto interrupted = service.prepare(
+      {interruptedSource, secondInterruptedSource}, options);
   assert(interrupted.ok);
   auto raw = journal(journals, interrupted.transactionId);
   raw.insert("state", "committing");
   saveJournal(journals, interrupted.transactionId, raw);
+  // Simulate crash after the first native rename of a two-file batch.
   assert(QFile::rename(interruptedSource, interruptedTarget));
   assert(!QFile::exists(interruptedSource));
+  assert(QFile::exists(secondInterruptedSource));
   const auto recovered = service.recover(interrupted.transactionId, true);
   assert(recovered.ok);
   assert(recovered.state == "recovered");
   assert(QFile::exists(interruptedSource));
   assert(!QFile::exists(interruptedTarget));
+  assert(QFile::exists(secondInterruptedSource));
+  assert(!QFile::exists(secondInterruptedTarget));
   assert(read(interruptedSource) == "recover me");
+  assert(read(secondInterruptedSource) == "still here");
   assert(!service.recover(interrupted.transactionId, true).ok);
+
+  // Also reconcile a crash after partial Undo: some sources restored,
+  // other targets remain renamed. Never overwrite either.
+  const auto undoInterrupted = service.prepare(
+      {interruptedSource, secondInterruptedSource}, options);
+  assert(undoInterrupted.ok);
+  assert(service.apply(undoInterrupted.transactionId, true).ok);
+  auto undoRaw = journal(journals, undoInterrupted.transactionId);
+  undoRaw.insert("state", "undoing");
+  saveJournal(journals, undoInterrupted.transactionId, undoRaw);
+  assert(QFile::rename(interruptedTarget, interruptedSource));
+  const auto undoneCrash = service.recover(undoInterrupted.transactionId, true);
+  assert(undoneCrash.ok);
+  assert(undoneCrash.state == "recovered");
+  assert(QFile::exists(interruptedSource));
+  assert(QFile::exists(secondInterruptedSource));
+  assert(!QFile::exists(interruptedTarget));
+  assert(!QFile::exists(secondInterruptedTarget));
 
   // A third party must not acquire an original name during recovery.
   const QString conflictSource = root + "/draft-conflict.txt";
