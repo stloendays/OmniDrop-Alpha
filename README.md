@@ -54,7 +54,7 @@ Unlike a general-purpose office suite, OmniDrop concentrates on the file operati
 | --- | --- |
 | **Text & developer files** | Normalize whitespace/line endings, remove duplicate lines, format JSON/XML, calculate SHA-256 |
 | **Duplicate file report** | Check an explicit selection by size and SHA-256; save advisory JSON without deleting anything |
-| **Batch rename preview** | Preview literal or regex filename replacements and conflicts, without renaming files |
+| **Batch rename** | Preview regex/literal rules without modification; development builds offer separately confirmed, journaled execution and verified Undo |
 | **Images** | Compress, convert to WebP, remove metadata, rotate 90° and resize to 50% |
 | **PDFs** | Extract text and embedded images, split pages, merge PDFs in selected order and rotate pages |
 | **ZIP archives** | Inspect archive contents and safely extract files |
