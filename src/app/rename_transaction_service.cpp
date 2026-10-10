@@ -139,8 +139,8 @@ bool moveNoReplace(const QString& source, const QString& target, QString* error)
     return false;
   }
 #ifdef Q_OS_WIN
-  const std::wstring from = source.toStdWString();
-  const std::wstring to = target.toStdWString();
+  const std::wstring from = QDir::toNativeSeparators(source).toStdWString();
+  const std::wstring to = QDir::toNativeSeparators(target).toStdWString();
   // Do not set MOVEFILE_REPLACE_EXISTING or MOVEFILE_COPY_ALLOWED.
   if (!MoveFileExW(from.c_str(), to.c_str(), MOVEFILE_WRITE_THROUGH)) {
     *error = "Windows refused an exclusive same-directory rename.";
