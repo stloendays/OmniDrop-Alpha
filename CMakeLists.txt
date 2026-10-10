@@ -24,6 +24,7 @@ add_library(omnidrop_core
   src/app/activation_protocol.cpp
   src/app/diagnostics.cpp
   src/app/omnidrop_service.cpp
+  src/app/rename_preview_service.cpp
 )
 
 target_include_directories(omnidrop_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -57,6 +58,8 @@ if(OMNIDROP_BUILD_GUI)
     src/gui/main_window.cpp
     src/gui/translation_dialog.cpp
     src/gui/workflow_dialog.cpp
+    src/gui/rename_preview_dialog.cpp
+    src/gui/rename_preview_dialog.hpp
     src/gui/workflow_graph_view.cpp
     src/gui/workflow_graph_view.hpp
     src/gui/drop_zone.cpp
@@ -96,6 +99,10 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   target_link_libraries(omnidrop_core_tests PRIVATE omnidrop_core Qt6::Core)
   add_test(NAME omnidrop_core_tests COMMAND omnidrop_core_tests)
 
+  add_executable(omnidrop_rename_preview_tests tests/rename_preview_service_tests.cpp)
+  target_link_libraries(omnidrop_rename_preview_tests PRIVATE omnidrop_core Qt6::Core)
+  add_test(NAME omnidrop_rename_preview_tests COMMAND omnidrop_rename_preview_tests)
+
   add_executable(omnidrop_activation_protocol_tests tests/activation_protocol_tests.cpp)
   target_link_libraries(omnidrop_activation_protocol_tests PRIVATE omnidrop_core Qt6::Core)
   add_test(NAME omnidrop_activation_protocol_tests COMMAND omnidrop_activation_protocol_tests)
@@ -126,6 +133,21 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
            COMMAND omnidrop_workflow_folder_watch_tests)
 
   if(TARGET omnidrop_cli)
+    add_executable(omnidrop_rename_preview_cli_tests
+      tests/rename_preview_cli_tests.cpp)
+    target_link_libraries(omnidrop_rename_preview_cli_tests PRIVATE Qt6::Core)
+    add_test(NAME omnidrop_rename_preview_cli_tests
+             COMMAND omnidrop_rename_preview_cli_tests
+                     "$<TARGET_FILE:omnidrop_cli>")
+    set_tests_properties(omnidrop_rename_preview_cli_tests PROPERTIES TIMEOUT 25)
+
+    add_test(NAME omnidrop_cli_rename_preview
+             COMMAND omnidrop_cli rename-preview --find README --replace DOCUMENT
+                     "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+    set_tests_properties(omnidrop_cli_rename_preview PROPERTIES
+      PASS_REGULAR_EXPRESSION "DOCUMENT.md"
+    )
+
     add_test(NAME omnidrop_cli_version COMMAND omnidrop_cli --version)
     set_tests_properties(omnidrop_cli_version PROPERTIES
       PASS_REGULAR_EXPRESSION "^${PROJECT_VERSION}"
@@ -167,6 +189,17 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
     target_link_libraries(omnidrop_graph_view_tests PRIVATE omnidrop_core Qt6::Widgets)
     add_test(NAME omnidrop_graph_view_tests COMMAND omnidrop_graph_view_tests)
     set_tests_properties(omnidrop_graph_view_tests PROPERTIES
+      ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    add_executable(omnidrop_rename_preview_gui_tests
+      tests/rename_preview_dialog_tests.cpp
+      src/gui/rename_preview_dialog.cpp
+      src/gui/rename_preview_dialog.hpp)
+    target_link_libraries(omnidrop_rename_preview_gui_tests PRIVATE
+      omnidrop_core Qt6::Widgets)
+    add_test(NAME omnidrop_rename_preview_gui_tests
+             COMMAND omnidrop_rename_preview_gui_tests)
+    set_tests_properties(omnidrop_rename_preview_gui_tests PROPERTIES
       ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
   endif()
 

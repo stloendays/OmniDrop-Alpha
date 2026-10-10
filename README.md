@@ -54,6 +54,7 @@ Unlike a general-purpose office suite, OmniDrop concentrates on the file operati
 | --- | --- |
 | **Text & developer files** | Normalize whitespace/line endings, remove duplicate lines, format JSON/XML, calculate SHA-256 |
 | **Duplicate file report** | Check an explicit selection by size and SHA-256; save advisory JSON without deleting anything |
+| **Batch rename preview** | Preview literal or regex filename replacements and conflicts, without renaming files |
 | **Images** | Compress, convert to WebP, remove metadata, rotate 90° and resize to 50% |
 | **PDFs** | Extract text and embedded images, split pages, merge PDFs in selected order and rotate pages |
 | **ZIP archives** | Inspect archive contents and safely extract files |
@@ -64,9 +65,11 @@ Unlike a general-purpose office suite, OmniDrop concentrates on the file operati
 | **Translation (optional)** | Offline Argos or explicitly consented MyMemory / LibreTranslate / DeepL API Free |
 | **Speech (optional)** | Convert text/subtitles to WAV after installing a verified Piper voice pack and inference runtime |
 
+**Release note:** The feature matrix describes the current `main` source tree. Features added after the `v0.3.0` Alpha tag are available only in development builds until a newer tested package is released.
+
 **Reality-based availability:** OmniDrop distinguishes *planned*, *implemented but unavailable*, and *available here* actions. Optional processors, language packs and voice models are not installed silently.
 
-[Full Action IDs and status](docs/ACTIONS.md) · [Translation and privacy](docs/TRANSLATION.md) · [Offline voice packs](docs/VOICE_PACKS.md)
+[Batch rename preview](docs/BATCH_RENAME_PREVIEW.md) · [Full Action IDs and status](docs/ACTIONS.md) · [Translation and privacy](docs/TRANSLATION.md) · [Offline voice packs](docs/VOICE_PACKS.md)
 
 <p align="center"><sub>The file workspace detects available local actions and keeps source files unchanged.</sub></p>
 

@@ -114,6 +114,21 @@ Next:
 - translation memory and terminology glossary;
 - voice narration of translated documents.
 
+### File naming and bulk operations
+
+Implemented:
+
+- read-only batch rename preview (literal or regex replacement, optional
+  case-insensitive matching, protected filename extension, collisions,
+  Windows reserved names and GUI/CLI shared application service);
+- no implicit rename, overwrite or remote processing.
+
+Next:
+
+- explicit safe rename execution with verification, write-ahead journal,
+  cross-volume behavior and reversible undo;
+- selectable rule presets and preview/export of reusable rename recipes.
+
 ### Text / developer files
 
 Implemented:
