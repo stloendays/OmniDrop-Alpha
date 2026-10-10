@@ -65,7 +65,7 @@ Unlike a general-purpose office suite, OmniDrop concentrates on the file operati
 | **Translation (optional)** | Offline Argos or explicitly consented MyMemory / LibreTranslate / DeepL API Free |
 | **Speech (optional)** | Convert text/subtitles to WAV after installing a verified Piper voice pack and inference runtime |
 
-**Reality-based availability:** OmniDrop distinguishes *planned*, *implemented but unavailable*, and *available here* actions. Optional processors, language packs and voice models are not installed silently.
+**Release note:** The feature matrix describes the current `main` source tree. Features added after the `v0.3.0` Alpha tag are available only in development builds until a newer tested package is released.\n\n**Reality-based availability:** OmniDrop distinguishes *planned*, *implemented but unavailable*, and *available here* actions. Optional processors, language packs and voice models are not installed silently.
 
 [Batch rename preview](docs/BATCH_RENAME_PREVIEW.md) · [Full Action IDs and status](docs/ACTIONS.md) · [Translation and privacy](docs/TRANSLATION.md) · [Offline voice packs](docs/VOICE_PACKS.md)
 
