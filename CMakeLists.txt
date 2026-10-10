@@ -25,6 +25,7 @@ add_library(omnidrop_core
   src/app/diagnostics.cpp
   src/app/omnidrop_service.cpp
   src/app/rename_preview_service.cpp
+  src/app/rename_transaction_service.cpp
 )
 
 target_include_directories(omnidrop_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -103,6 +104,12 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   target_link_libraries(omnidrop_rename_preview_tests PRIVATE omnidrop_core Qt6::Core)
   add_test(NAME omnidrop_rename_preview_tests COMMAND omnidrop_rename_preview_tests)
 
+  add_executable(omnidrop_rename_transaction_tests
+    tests/rename_transaction_service_tests.cpp)
+  target_link_libraries(omnidrop_rename_transaction_tests PRIVATE omnidrop_core Qt6::Core)
+  add_test(NAME omnidrop_rename_transaction_tests
+           COMMAND omnidrop_rename_transaction_tests)
+
   add_executable(omnidrop_activation_protocol_tests tests/activation_protocol_tests.cpp)
   target_link_libraries(omnidrop_activation_protocol_tests PRIVATE omnidrop_core Qt6::Core)
   add_test(NAME omnidrop_activation_protocol_tests COMMAND omnidrop_activation_protocol_tests)
@@ -133,6 +140,15 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
            COMMAND omnidrop_workflow_folder_watch_tests)
 
   if(TARGET omnidrop_cli)
+    add_executable(omnidrop_rename_transaction_cli_tests
+      tests/rename_transaction_cli_tests.cpp)
+    target_link_libraries(omnidrop_rename_transaction_cli_tests PRIVATE Qt6::Core)
+    add_test(NAME omnidrop_rename_transaction_cli_tests
+             COMMAND omnidrop_rename_transaction_cli_tests
+                     "$<TARGET_FILE:omnidrop_cli>")
+    set_tests_properties(omnidrop_rename_transaction_cli_tests
+                         PROPERTIES TIMEOUT 65)
+
     add_executable(omnidrop_rename_preview_cli_tests
       tests/rename_preview_cli_tests.cpp)
     target_link_libraries(omnidrop_rename_preview_cli_tests PRIVATE Qt6::Core)
@@ -196,7 +212,7 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
       src/gui/rename_preview_dialog.cpp
       src/gui/rename_preview_dialog.hpp)
     target_link_libraries(omnidrop_rename_preview_gui_tests PRIVATE
-      omnidrop_core Qt6::Widgets)
+      omnidrop_core Qt6::Widgets Qt6::Concurrent)
     add_test(NAME omnidrop_rename_preview_gui_tests
              COMMAND omnidrop_rename_preview_gui_tests)
     set_tests_properties(omnidrop_rename_preview_gui_tests PROPERTIES

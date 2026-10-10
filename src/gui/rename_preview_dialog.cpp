@@ -1,6 +1,8 @@
 #include "gui/rename_preview_dialog.hpp"
 
 #include <QCheckBox>
+#include <QCloseEvent>
+#include <QFutureWatcher>
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QFormLayout>
@@ -8,10 +10,12 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QVBoxLayout>
+#include <QtConcurrent>
 
 #include <utility>
 
@@ -34,7 +38,8 @@ RenamePreviewDialog::RenamePreviewDialog(
   layout->addWidget(title);
 
   auto* notice = new QLabel(
-      "Preview only: OmniDrop will not rename, move or overwrite any files.",
+      "Preview is read-only. Filenames change only after Prepare & apply " 
+      "and a separate confirmation. Existing targets are never overwritten.",
       this);
   notice->setWordWrap(true);
   layout->addWidget(notice);
@@ -42,9 +47,9 @@ RenamePreviewDialog::RenamePreviewDialog(
   auto* selectedRow = new QHBoxLayout;
   selectionInfo_ = new QLabel(this);
   selectedRow->addWidget(selectionInfo_, 1);
-  auto* chooseButton = new QPushButton("Choose files...", this);
-  chooseButton->setObjectName("secondaryButton");
-  selectedRow->addWidget(chooseButton);
+  chooseButton_ = new QPushButton("Choose files...", this);
+  chooseButton_->setObjectName("secondaryButton");
+  selectedRow->addWidget(chooseButton_);
   layout->addLayout(selectedRow);
 
   auto* form = new QFormLayout;
@@ -88,12 +93,31 @@ RenamePreviewDialog::RenamePreviewDialog(
   table_->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
   layout->addWidget(table_, 1);
 
-  auto* buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
-  layout->addWidget(buttons);
+  auto* operations = new QHBoxLayout;
+  operations->addStretch();
+  undoButton_ = new QPushButton("Undo last batch", this);
+  undoButton_->setObjectName("renameUndoButton");
+  undoButton_->setToolTip(
+      "Only available if renamed files have not changed and original names are free.");
+  undoButton_->setEnabled(false);
+  prepareButton_ = new QPushButton("Prepare & apply...", this);
+  prepareButton_->setObjectName("renameApplyButton");
+  prepareButton_->setToolTip("Verify files, show confirmation and save an undo journal.");
+  prepareButton_->setEnabled(false);
+  operations->addWidget(undoButton_);
+  operations->addWidget(prepareButton_);
+  layout->addLayout(operations);
 
-  connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::close);
-  connect(chooseButton, &QPushButton::clicked, this,
+  footer_ = new QDialogButtonBox(QDialogButtonBox::Close, this);
+  layout->addWidget(footer_);
+
+  connect(footer_, &QDialogButtonBox::rejected, this, &QDialog::close);
+  connect(chooseButton_, &QPushButton::clicked, this,
           [this] { chooseFiles(); });
+  connect(prepareButton_, &QPushButton::clicked, this,
+          [this] { prepareTransaction(); });
+  connect(undoButton_, &QPushButton::clicked, this,
+          [this] { undoLastTransaction(); });
   connect(findInput_, &QLineEdit::textChanged, this,
           [this] { refreshPreview(); });
   connect(replacementInput_, &QLineEdit::textChanged, this,
@@ -116,10 +140,177 @@ void RenamePreviewDialog::chooseFiles() {
   refreshPreview();
 }
 
+RenamePreviewOptions RenamePreviewDialog::currentOptions() const {
+  RenamePreviewOptions options;
+  options.find = findInput_->text();
+  options.replacement = replacementInput_->text();
+  options.useRegex = regex_->isChecked();
+  options.caseSensitive = !ignoreCase_->isChecked();
+  options.includeExtension = includeExtension_->isChecked();
+  return options;
+}
+
+void RenamePreviewDialog::setBusy(bool busy) {
+  busy_ = busy;
+  chooseButton_->setEnabled(!busy);
+  findInput_->setEnabled(!busy);
+  replacementInput_->setEnabled(!busy);
+  regex_->setEnabled(!busy);
+  ignoreCase_->setEnabled(!busy);
+  includeExtension_->setEnabled(!busy);
+  footer_->setEnabled(!busy);
+  prepareButton_->setEnabled(!busy && lastPreview_.ok &&
+                             lastPreview_.readyCount > 0 &&
+                             lastPreview_.conflictCount == 0);
+  undoButton_->setEnabled(!busy && !lastCommittedId_.isEmpty());
+}
+
+void RenamePreviewDialog::prepareTransaction() {
+  if (busy_ || !lastPreview_.ok || lastPreview_.conflictCount ||
+      lastPreview_.readyCount == 0) return;
+  const auto expected = lastPreview_;
+  const auto paths = selectedPaths_;
+  const auto options = currentOptions();
+  setBusy(true);
+  summary_->setText("Hashing selected files and preparing a private undo journal...");
+
+  auto* watcher = new QFutureWatcher<RenameTransactionResult>(this);
+  connect(watcher, &QFutureWatcher<RenameTransactionResult>::finished,
+          this, [this, watcher, expected] {
+    const auto result = watcher->result();
+    watcher->deleteLater();
+    setBusy(false);
+    if (!result.ok) {
+      summary_->setText("Cannot prepare rename: " + result.error);
+      return;
+    }
+    QStringList expectedPairs;
+    for (const auto& row : expected.rows) {
+      if (row.status == "ready")
+        expectedPairs.append(row.sourcePath + QStringLiteral("\n") + row.targetPath);
+    }
+    QStringList preparedPairs;
+    for (const auto& item : result.rows) {
+      const auto row = item.toObject();
+      preparedPairs.append(row.value("source_path").toString() +
+                           QStringLiteral("\n") +
+                           row.value("target_path").toString());
+    }
+    if (expectedPairs != preparedPairs) {
+      summary_->setText("File selection changed during preparation. "
+                        "No filenames were changed; review the new preview.");
+      refreshPreview();
+      return;
+    }
+
+    const QString question =
+        QString("Rename %1 files on disk?\n\n"
+                "This will change the filenames, not their contents. "
+                "No existing destination is overwritten. An Undo record is "
+                "saved, but Undo is refused if files change afterward.\n\n"
+                "Transaction ID: %2")
+            .arg(result.rows.size())
+            .arg(result.transactionId);
+    if (QMessageBox::question(
+            this, "Confirm batch rename", question,
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::No) != QMessageBox::Yes) {
+      summary_->setText("Plan saved, no filenames changed. "
+                        "You can prepare a fresh plan or close this window.");
+      return;
+    }
+    commitPrepared(result.transactionId);
+  });
+  watcher->setFuture(QtConcurrent::run([paths, options] {
+    return RenameTransactionService{}.prepare(paths, options);
+  }));
+}
+
+void RenamePreviewDialog::commitPrepared(const QString& transactionId) {
+  setBusy(true);
+  summary_->setText("Applying the confirmed rename plan; do not close this window...");
+  auto* watcher = new QFutureWatcher<RenameTransactionResult>(this);
+  connect(watcher, &QFutureWatcher<RenameTransactionResult>::finished,
+          this, [this, watcher] {
+    const auto result = watcher->result();
+    watcher->deleteLater();
+    setBusy(false);
+    if (!result.ok) {
+      summary_->setText("Rename incomplete: " + result.error +
+                        "  Transaction: " + result.transactionId);
+      return;
+    }
+    lastCommittedId_ = result.transactionId;
+    refreshPreview();
+    undoButton_->setEnabled(true);
+    summary_->setText(QString("%1 filenames changed. Undo is available if "
+                              "the files stay unchanged. Transaction: %2")
+                          .arg(result.rows.size())
+                          .arg(result.transactionId));
+  });
+  watcher->setFuture(QtConcurrent::run([transactionId] {
+    return RenameTransactionService{}.apply(transactionId, true);
+  }));
+}
+
+void RenamePreviewDialog::undoLastTransaction() {
+  if (busy_ || lastCommittedId_.isEmpty()) return;
+  if (QMessageBox::question(
+          this, "Undo batch rename",
+          "Restore the original filenames? OmniDrop will verify every file "
+          "and will not overwrite any new file at its old name.",
+          QMessageBox::Yes | QMessageBox::No,
+          QMessageBox::No) != QMessageBox::Yes) return;
+
+  const QString transactionId = lastCommittedId_;
+  setBusy(true);
+  summary_->setText("Verifying files and restoring original filenames...");
+  auto* watcher = new QFutureWatcher<RenameTransactionResult>(this);
+  connect(watcher, &QFutureWatcher<RenameTransactionResult>::finished,
+          this, [this, watcher] {
+    const auto result = watcher->result();
+    watcher->deleteLater();
+    setBusy(false);
+    if (!result.ok) {
+      summary_->setText("Undo refused: " + result.error +
+                        "  Transaction: " + result.transactionId);
+      return;
+    }
+    lastCommittedId_.clear();
+    undoButton_->setEnabled(false);
+    refreshPreview();
+    summary_->setText("Original filenames restored after verification.");
+  });
+  watcher->setFuture(QtConcurrent::run([transactionId] {
+    return RenameTransactionService{}.undo(transactionId, true);
+  }));
+}
+
+void RenamePreviewDialog::reject() {
+  if (busy_) {
+    QMessageBox::information(
+        this, "Rename in progress",
+        "A rename transaction is still running. The journal will remain "
+        "available for recovery if the process is interrupted.");
+    return;
+  }
+  QDialog::reject();
+}
+
+void RenamePreviewDialog::closeEvent(QCloseEvent* event) {
+  if (busy_) {
+    event->ignore();
+    return;
+  }
+  QDialog::closeEvent(event);
+}
+
 void RenamePreviewDialog::refreshPreview() {
   selectionInfo_->setText(
       QString("%1 selected files (maximum 128)").arg(selectedPaths_.size()));
   table_->setRowCount(0);
+  lastPreview_ = {};
+  prepareButton_->setEnabled(false);
 
   if (selectedPaths_.isEmpty()) {
     summary_->setText("Choose one or more files to begin.");
@@ -142,10 +333,13 @@ void RenamePreviewDialog::refreshPreview() {
     return;
   }
 
+  lastPreview_ = result;
+  prepareButton_->setEnabled(!busy_ && result.readyCount > 0 &&
+                              result.conflictCount == 0);
   const int unchanged = result.rows.size() - result.proposedChangeCount;
   summary_->setText(
       QString("%1 ready  |  %2 conflicts  |  %3 unchanged. "
-              "No rename will be applied.")
+              "Changes require your separate confirmation.")
           .arg(result.readyCount)
           .arg(result.conflictCount)
           .arg(unchanged));

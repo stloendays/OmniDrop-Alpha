@@ -113,6 +113,48 @@ try {
   if ([System.IO.File]::ReadAllText($source) -ne "alpha  `nalpha  `n") {
     throw "Packaged Workflow unexpectedly modified the original file."
   }
+
+  # The installed CLI must perform a real, reversible, no-overwrite rename
+  # without depending on anything in the developer source/build directory.
+  $renameInput = Join-Path $smokeDirectory "draft-package.txt"
+  $renameOutput = Join-Path $smokeDirectory "final-package.txt"
+  [System.IO.File]::WriteAllText($renameInput, "local rename test")
+  $oldRenameJournal = [Environment]::GetEnvironmentVariable("OMNIDROP_RENAME_JOURNAL_DIR", "Process")
+  try {
+    $env:OMNIDROP_RENAME_JOURNAL_DIR = Join-Path $smokeDirectory "rename-journals"
+    $planText = (& $cli rename-prepare --find "draft-" --replace "final-" $renameInput | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0) { throw "Packaged rename preparation failed: $planText" }
+    $plan = $planText | ConvertFrom-Json
+    if (-not $plan.ok -or $plan.state -ne "prepared" -or
+        -not (Test-Path $renameInput) -or (Test-Path $renameOutput)) {
+      throw "Packaged rename prepare unexpectedly changed the filesystem."
+    }
+    $id = $plan.transaction_id
+    $commitText = (& $cli rename-apply $id --confirm | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0) { throw "Packaged rename apply failed: $commitText" }
+    $commit = $commitText | ConvertFrom-Json
+    if (-not $commit.ok -or $commit.state -ne "committed" -or
+        (Test-Path $renameInput) -or -not (Test-Path $renameOutput)) {
+      throw "Packaged rename apply did not perform the expected safe move."
+    }
+    $undoText = (& $cli rename-undo $id --confirm | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0) { throw "Packaged rename undo failed: $undoText" }
+    $undo = $undoText | ConvertFrom-Json
+    if (-not $undo.ok -or $undo.state -ne "undone" -or
+        -not (Test-Path $renameInput) -or (Test-Path $renameOutput)) {
+      throw "Packaged rename Undo did not restore the original path."
+    }
+    if ([System.IO.File]::ReadAllText($renameInput) -ne "local rename test") {
+      throw "Packaged rename transaction changed file contents."
+    }
+  }
+  finally {
+    if ($null -eq $oldRenameJournal) {
+      Remove-Item Env:\OMNIDROP_RENAME_JOURNAL_DIR -ErrorAction SilentlyContinue
+    } else {
+      $env:OMNIDROP_RENAME_JOURNAL_DIR = $oldRenameJournal
+    }
+  }
 }
 finally {
   Remove-Item -Path $smokeDirectory -Recurse -Force -ErrorAction SilentlyContinue

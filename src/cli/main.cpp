@@ -2,6 +2,7 @@
 #include "adapters/python_worker_client.hpp"
 #include "app/omnidrop_service.hpp"
 #include "app/rename_preview_service.hpp"
+#include "app/rename_transaction_service.hpp"
 #include "app/translation_service.hpp"
 #include "app/workflow_service.hpp"
 #include "app/workflow_job_service.hpp"
@@ -38,6 +39,12 @@ int usage() {
       << "  omnidrop-cli run <action-id> <file>\n"
       << "  omnidrop-cli batch-run <action-id> <file> <file> [...]\n"
       << "  omnidrop-cli rename-preview --find PATTERN --replace TEXT [--regex] [--ignore-case] [--include-extension] <file> [...]\n"
+      << "  omnidrop-cli rename-prepare --find PATTERN --replace TEXT [--regex] [--ignore-case] [--include-extension] <file> [...]\n"
+      << "  omnidrop-cli rename-list\n"
+      << "  omnidrop-cli rename-status <transaction-id>\n"
+      << "  omnidrop-cli rename-apply <transaction-id> --confirm\n"
+      << "  omnidrop-cli rename-undo <transaction-id> --confirm\n"
+      << "  omnidrop-cli rename-recover <transaction-id> --confirm\n"
       << "  omnidrop-cli translate <file> --from en --to zh --provider argos|mymemory|libretranslate|deepl-free [--allow-upload] [--endpoint https://host/translate]\n"
       << "  omnidrop-cli workflow validate <workflow.json>\n"
       << "  omnidrop-cli workflow plan <workflow.json> <file> [...]\n"
@@ -168,7 +175,7 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
-  if (command == "rename-preview") {
+  if (command == "rename-preview" || command == "rename-prepare") {
     omnidrop::RenamePreviewOptions options;
     QStringList paths;
     bool findProvided = false;
@@ -205,6 +212,13 @@ int main(int argc, char* argv[]) {
     }
 
     if (!findProvided || !replaceProvided || paths.isEmpty()) return usage();
+    if (command == "rename-prepare") {
+      const omnidrop::RenameTransactionService transactions;
+      const auto result = transactions.prepare(paths, options);
+      out << QJsonDocument(result.toJson()).toJson(QJsonDocument::Compact) << '\n';
+      if (!result.ok) err << result.error << '\n';
+      return result.ok ? 0 : 2;
+    }
     const omnidrop::RenamePreviewService service;
     const auto result = service.preview(paths, options);
     out << QJsonDocument(result.toJson()).toJson(QJsonDocument::Compact) << '\n';
@@ -214,6 +228,29 @@ int main(int argc, char* argv[]) {
     }
     // A valid plan with collisions is not safe for future execution.
     return result.conflictCount > 0 ? 3 : 0;
+  }
+
+  if (command == "rename-list" && args.size() == 2) {
+    const auto data = omnidrop::RenameTransactionService{}.listTransactions();
+    out << QJsonDocument(data).toJson(QJsonDocument::Compact) << '\n';
+    return data.value("ok").toBool() ? 0 : 2;
+  }
+
+  if (command == "rename-status" || command == "rename-apply" ||
+      command == "rename-undo" || command == "rename-recover") {
+    const bool statusOnly = command == "rename-status";
+    if ((statusOnly && args.size() != 3) ||
+        (!statusOnly && (args.size() != 4 || args.at(3) != "--confirm")))
+      return usage();
+    omnidrop::RenameTransactionService transactions;
+    omnidrop::RenameTransactionResult result;
+    if (statusOnly) result = transactions.status(args.at(2));
+    else if (command == "rename-apply") result = transactions.apply(args.at(2), true);
+    else if (command == "rename-undo") result = transactions.undo(args.at(2), true);
+    else result = transactions.recover(args.at(2), true);
+    out << QJsonDocument(result.toJson()).toJson(QJsonDocument::Compact) << '\n';
+    if (!result.ok) err << result.error << '\n';
+    return result.ok ? 0 : 2;
   }
 
   if (command == "workflow" && args.size() >= 3) {
