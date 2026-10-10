@@ -49,8 +49,10 @@ RenamePreviewDialog::RenamePreviewDialog(
 
   auto* form = new QFormLayout;
   findInput_ = new QLineEdit(this);
+  findInput_->setObjectName("renameFindInput");
   findInput_->setPlaceholderText("Text or regular expression to find");
   replacementInput_ = new QLineEdit(this);
+  replacementInput_->setObjectName("renameReplacementInput");
   replacementInput_->setPlaceholderText("Replacement (can be empty)");
   form->addRow("Find", findInput_);
   form->addRow("Replace with", replacementInput_);
@@ -67,10 +69,12 @@ RenamePreviewDialog::RenamePreviewDialog(
   layout->addLayout(flags);
 
   summary_ = new QLabel(this);
+  summary_->setObjectName("renamePreviewSummary");
   summary_->setWordWrap(true);
   layout->addWidget(summary_);
 
   table_ = new QTableWidget(this);
+  table_->setObjectName("renamePreviewTable");
   table_->setColumnCount(4);
   table_->setHorizontalHeaderLabels(
       {"Original name", "Proposed name", "Status", "Notes"});
