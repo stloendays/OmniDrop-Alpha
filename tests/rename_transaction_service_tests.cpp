@@ -82,6 +82,13 @@ int main(int argc, char** argv) {
 
   omnidrop::RenameTransactionService afterRestart(journals);
   assert(afterRestart.status(prepared.transactionId).state == "prepared");
+  const auto listed = afterRestart.listTransactions();
+  assert(listed.value("ok").toBool());
+  const auto listedRecords = listed.value("transactions").toArray();
+  assert(!listedRecords.isEmpty());
+  assert(listedRecords.first().toObject()
+             .value("transaction_id").toString() == prepared.transactionId);
+  assert(!QJsonDocument(listed).toJson().contains(a.toUtf8()));
   assert(!afterRestart.apply(prepared.transactionId, false).ok);
   assert(QFile::exists(a) && QFile::exists(b));
 
