@@ -23,23 +23,23 @@ The dialog has no Apply/Rename button in this phase. Closing it changes nothing.
 
 From the extracted Windows package (or a local developer build):
 
-\`\`\`powershell
+```powershell
 .\omnidrop-cli.exe rename-preview --find IMG_ --replace photo- C:\Photos\IMG_01.png C:\Photos\IMG_02.png
 .\omnidrop-cli.exe rename-preview --regex --find '^(report)-(\d+)' --replace 'draft-\2' C:\Reports\report-17.pdf
 .\omnidrop-cli.exe rename-preview --find .jpeg --replace .jpg --include-extension C:\Photos\image.jpeg
-\`\`\`
+```
 
 The CLI prints structured JSON to stdout with:
 
-- \`schema_version: 1\`, \`operation: "rename.preview"\`, \`preview_only: true\`,
-  \`can_apply: false\`;
-- \`input_count\`, \`proposed_change_count\`, \`ready_count\`,
-  \`conflict_count\`;
-- ordered \`rows[]\`: \`source_path\`, \`current_name\`, \`proposed_name\`,
-  \`target_path\`, \`status\` and \`reason\`.
+- `schema_version: 1`, `operation: "rename.preview"`, `preview_only: true`,
+  `can_apply: false`;
+- `input_count`, `proposed_change_count`, `ready_count`,
+  `conflict_count`;
+- ordered `rows[]`: `source_path`, `current_name`, `proposed_name`,
+  `target_path`, `status` and `reason`.
 
-Exit codes: \`0\` for a valid conflict-free preview, \`3\` if any candidate
-has a conflict, \`2\` for validation errors and \`1\` for invalid CLI syntax.
+Exit codes: `0` for a valid conflict-free preview, `3` if any candidate
+has a conflict, `2` for validation errors and `1` for invalid CLI syntax.
 There is **no execution flag or hidden mutation**.
 
 When invoked via an agent or script, inspect the JSON report rather than
@@ -49,7 +49,7 @@ inferring safety solely from an exit code.
 
 - 1–128 explicitly selected existing regular files; no recursive folder walk.
 - Reject duplicate selections, symbolic links, and missing inputs.
-- Keep the last file extension unchanged unless \`--include-extension\` is
+- Keep the last file extension unchanged unless `--include-extension` is
   supplied.
 - Reject path separators, control characters, reserved Windows names, trailing
   spaces/dots and filenames longer than 255 UTF-16 code units.
@@ -60,7 +60,7 @@ inferring safety solely from an exit code.
 - Current/target **absolute paths appear in CLI output**; redact them before
   posting reports in public issues or sending them to external services.
 
-The same \`RenamePreviewService::preview()\` application service is used by
+The same `RenamePreviewService::preview()` application service is used by
 the GUI and CLI. This is separate from the local workflow action allowlist:
 workflows may not perform any rename in this release.
 
