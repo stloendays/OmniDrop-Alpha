@@ -212,7 +212,7 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
       src/gui/rename_preview_dialog.cpp
       src/gui/rename_preview_dialog.hpp)
     target_link_libraries(omnidrop_rename_preview_gui_tests PRIVATE
-      omnidrop_core Qt6::Widgets)
+      omnidrop_core Qt6::Widgets Qt6::Concurrent)
     add_test(NAME omnidrop_rename_preview_gui_tests
              COMMAND omnidrop_rename_preview_gui_tests)
     set_tests_properties(omnidrop_rename_preview_gui_tests PROPERTIES
