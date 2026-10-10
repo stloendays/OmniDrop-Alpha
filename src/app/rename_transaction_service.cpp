@@ -49,6 +49,10 @@ QString journalPath(const QString& directory, const QString& id) {
 }
 
 bool locked(const QString& directory, QLockFile& lock, QString* error) {
+  if (!QDir::isAbsolutePath(directory)) {
+    *error = "Rename journal storage must use an absolute local directory.";
+    return false;
+  }
   if (!QDir().mkpath(directory)) {
     *error = "Cannot create the private rename journal directory.";
     return false;
@@ -210,11 +214,20 @@ QString writeJournal(const QString& directory, const QJsonObject& document) {
 
 QJsonObject readJournal(const QString& directory, const QString& id,
                         QString* error) {
+  if (!QDir::isAbsolutePath(directory)) {
+    *error = "Rename journal storage must use an absolute local directory.";
+    return {};
+  }
   if (!kTransactionId.match(id).hasMatch()) {
     *error = "Invalid rename transaction ID.";
     return {};
   }
-  QFile file(journalPath(directory, id));
+  const QString location = journalPath(directory, id);
+  if (QFileInfo(location).isSymLink()) {
+    *error = "Refusing to read a symlinked rename journal.";
+    return {};
+  }
+  QFile file(location);
   if (!file.open(QIODevice::ReadOnly) || file.size() > kMaxJournalBytes) {
     *error = "Rename journal is missing, unreadable or too large.";
     return {};
