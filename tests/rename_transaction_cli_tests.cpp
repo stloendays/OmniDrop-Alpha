@@ -73,6 +73,13 @@ int main(int argc, char** argv) {
   const auto status = decode(run(
       executable, {"rename-status", id}, journalDirectory, 0));
   assert(status.value("state").toString() == "prepared");
+  const auto historyBytes = run(executable, {"rename-list"}, journalDirectory, 0);
+  const auto history = decode(historyBytes);
+  assert(history.value("ok").toBool());
+  const auto entries = history.value("transactions").toArray();
+  assert(entries.size() == 1);
+  assert(entries.first().toObject().value("transaction_id").toString() == id);
+  assert(!historyBytes.contains(a.toUtf8()));
 
   // The mutating command must reject an omitted --confirm flag.
   run(executable, {"rename-apply", id}, journalDirectory, 1);
