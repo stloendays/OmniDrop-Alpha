@@ -69,6 +69,13 @@ executed simultaneously in two processes. The store is limited to 100
 job records and 6 MiB. Corrupt/unsupported files are rejected, never
 silently replaced.
 
+## Durable job event timeline
+
+Workflow v2.5 saves bounded milestone events next to each Job and exposes them
+in the Jobs UI and through `workflow events <job-id>`. Older v2.3 records
+remain valid. See [Workflow Timeline](WORKFLOW_TIMELINE.md) for the event
+schema, redaction boundaries, and 160-event-per-job retention limit.
+
 ## Next
 
 - Efficient recovery from verified per-file checkpoints and failed steps
