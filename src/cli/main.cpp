@@ -1,6 +1,7 @@
 #include "adapters/diagnostics_service.hpp"
 #include "adapters/python_worker_client.hpp"
 #include "app/omnidrop_service.hpp"
+#include "app/rename_preview_service.hpp"
 #include "app/translation_service.hpp"
 #include "app/workflow_service.hpp"
 #include "app/workflow_job_service.hpp"
@@ -36,6 +37,7 @@ int usage() {
       << "  omnidrop-cli diagnostics\n"
       << "  omnidrop-cli run <action-id> <file>\n"
       << "  omnidrop-cli batch-run <action-id> <file> <file> [...]\n"
+      << "  omnidrop-cli rename-preview --find PATTERN --replace TEXT [--regex] [--ignore-case] [--include-extension] <file> [...]\n"
       << "  omnidrop-cli translate <file> --from en --to zh --provider argos|mymemory|libretranslate|deepl-free [--allow-upload] [--endpoint https://host/translate]\n"
       << "  omnidrop-cli workflow validate <workflow.json>\n"
       << "  omnidrop-cli workflow plan <workflow.json> <file> [...]\n"
@@ -164,6 +166,54 @@ int main(int argc, char* argv[]) {
     }
     out << translated.output << '\n';
     return 0;
+  }
+
+  if (command == "rename-preview") {
+    omnidrop::RenamePreviewOptions options;
+    QStringList paths;
+    bool findProvided = false;
+    bool replaceProvided = false;
+    bool positionalOnly = false;
+    for (int index = 2; index < args.size(); ++index) {
+      const auto argument = args.at(index);
+      if (!positionalOnly && argument == "--") {
+        positionalOnly = true;
+        continue;
+      }
+      if (!positionalOnly && (argument == "--find" || argument == "--replace")) {
+        if (index + 1 >= args.size()) return usage();
+        const auto value = args.at(++index);
+        if (argument == "--find") {
+          options.find = value;
+          findProvided = true;
+        } else {
+          options.replacement = value;
+          replaceProvided = true;
+        }
+      } else if (!positionalOnly && argument == "--regex") {
+        options.useRegex = true;
+      } else if (!positionalOnly && argument == "--ignore-case") {
+        options.caseSensitive = false;
+      } else if (!positionalOnly && argument == "--include-extension") {
+        options.includeExtension = true;
+      } else if (!positionalOnly && argument.startsWith("--")) {
+        err << "Unknown rename preview option: " << argument << '\n';
+        return usage();
+      } else {
+        paths.append(argument);
+      }
+    }
+
+    if (!findProvided || !replaceProvided || paths.isEmpty()) return usage();
+    const omnidrop::RenamePreviewService service;
+    const auto result = service.preview(paths, options);
+    out << QJsonDocument(result.toJson()).toJson(QJsonDocument::Compact) << '\n';
+    if (!result.ok) {
+      err << result.error << '\n';
+      return 2;
+    }
+    // A valid plan with collisions is not safe for future execution.
+    return result.conflictCount > 0 ? 3 : 0;
   }
 
   if (command == "workflow" && args.size() >= 3) {
