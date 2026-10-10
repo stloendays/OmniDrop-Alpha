@@ -28,6 +28,8 @@ class RenameTransactionService {
   RenameTransactionResult prepare(
       const QStringList& selectedPaths, const RenamePreviewOptions& options) const;
   RenameTransactionResult status(const QString& transactionId) const;
+  // List IDs/states without returning private file paths or hashes.
+  QJsonObject listTransactions() const;
   RenameTransactionResult apply(const QString& transactionId,
                                 bool explicitlyApproved) const;
   RenameTransactionResult undo(const QString& transactionId,
