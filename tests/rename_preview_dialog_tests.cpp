@@ -69,6 +69,7 @@ int main(int argc, char** argv) {
   QFile original(source);
   assert(original.open(QIODevice::ReadOnly));
   assert(original.readAll() == "original\n");
+  original.close();  // Windows requires releasing the read handle before rename.
   assert(!QFile::exists(temp.filePath("draft.txt")));
   for (auto* button : dialog.findChildren<QPushButton*>()) {
     assert(button->text() != "Apply");
