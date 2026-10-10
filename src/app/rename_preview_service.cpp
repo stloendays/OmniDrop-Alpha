@@ -91,7 +91,7 @@ RenamePreviewResult RenamePreviewService::preview(
 
   QRegularExpression regular;
   if (options.useRegex) {
-    auto flags = QRegularExpression::UseUnicodePropertiesOption;
+    QRegularExpression::PatternOptions flags = QRegularExpression::UseUnicodePropertiesOption;
     if (!options.caseSensitive) flags |= QRegularExpression::CaseInsensitiveOption;
     regular = QRegularExpression(options.find, flags);
     if (!regular.isValid()) {
