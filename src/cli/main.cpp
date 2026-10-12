@@ -4,6 +4,7 @@
 #include "app/omnidrop_service.hpp"
 #include "app/rename_preview_service.hpp"
 #include "app/rename_transaction_service.hpp"
+#include "app/local_update_preflight_service.hpp"
 #include "app/settings_service.hpp"
 #include "app/translation_service.hpp"
 #include "app/workflow_service.hpp"
@@ -39,6 +40,7 @@ int usage() {
       << "  omnidrop-cli capabilities\n"
       << "  omnidrop-cli diagnostics\n"
       << "  omnidrop-cli update-check [--channel alpha|stable]\n"
+      << "  omnidrop-cli update-verify <absolute-zip> <absolute-sha256> [--install-dir <absolute-directory>]\n"
       << "  omnidrop-cli settings get\n"
       << "  omnidrop-cli settings set recent_files_limit|activity_history_limit N\n"
       << "  omnidrop-cli settings export <absolute-file.json>\n"
@@ -155,6 +157,22 @@ int main(int argc, char* argv[]) {
     }
     const auto result = omnidrop::GitHubReleaseClient::check(
         OMNIDROP_VERSION, channel);
+    out << QJsonDocument(result.toJson()).toJson(QJsonDocument::Compact) << '\n';
+    if (!result.ok) err << result.error << '\n';
+    return result.ok ? 0 : 2;
+  }
+
+  // Local-only integrity/safety preflight; never downloads, extracts,
+  // stages, runs, or replaces a binary. Shares the GUI's core verifier.
+  if (command == "update-verify") {
+    QString installation;
+    if (args.size() == 6 && args.at(4) == "--install-dir") {
+      installation = args.at(5);
+    } else if (args.size() != 4) {
+      return usage();
+    }
+    const auto result = omnidrop::LocalUpdatePreflightService::verify(
+        args.at(2), args.at(3), installation);
     out << QJsonDocument(result.toJson()).toJson(QJsonDocument::Compact) << '\n';
     if (!result.ok) err << result.error << '\n';
     return result.ok ? 0 : 2;

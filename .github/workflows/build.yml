@@ -59,6 +59,16 @@ jobs:
         run: |
           ./scripts/package_windows.ps1 -PackageDir package -FinalizeOnly
 
+      - name: Verify packaged ZIP with local update preflight
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem -LiteralPath . -Filter 'OmniDrop-*-windows-dev.zip' -File | Select-Object -First 1
+          if (-not $zip) { throw "Windows ZIP was not created." }
+          # The checkout contains .git, so use an existing external scratch
+          # directory as the proposed install target. No extraction occurs.
+          & ./package/omnidrop-cli.exe update-verify $zip.FullName "$($zip.FullName).sha256" --install-dir $env:RUNNER_TEMP
+          if ($LASTEXITCODE -ne 0) { throw "Read-only local ZIP preflight failed." }
+
       - name: Attest final Windows ZIP with Sigstore-backed GitHub provenance
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/attest@v4
