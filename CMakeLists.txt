@@ -37,6 +37,7 @@ add_library(omnidrop_adapters
   src/adapters/python_runtime.cpp
   src/adapters/python_worker_client.cpp
   src/app/translation_service.cpp
+  src/app/settings_service.cpp
   src/app/workflow_service.cpp
   src/app/workflow_job_service.cpp
   src/app/workflow_folder_watch_service.cpp
@@ -63,6 +64,8 @@ if(OMNIDROP_BUILD_GUI)
     src/gui/rename_preview_dialog.hpp
     src/gui/rename_history_dialog.cpp
     src/gui/rename_history_dialog.hpp
+    src/gui/settings_dialog.cpp
+    src/gui/settings_dialog.hpp
     src/gui/workflow_graph_view.cpp
     src/gui/workflow_graph_view.hpp
     src/gui/drop_zone.cpp
@@ -120,6 +123,17 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   target_link_libraries(omnidrop_diagnostics_tests PRIVATE omnidrop_core Qt6::Core)
   add_test(NAME omnidrop_diagnostics_tests COMMAND omnidrop_diagnostics_tests)
 
+  add_executable(omnidrop_settings_tests tests/settings_service_tests.cpp)
+  target_link_libraries(omnidrop_settings_tests PRIVATE omnidrop_adapters Qt6::Core)
+  add_test(NAME omnidrop_settings_tests COMMAND omnidrop_settings_tests)
+
+  add_executable(omnidrop_settings_history_tests
+    tests/settings_history_integration_tests.cpp)
+  target_link_libraries(omnidrop_settings_history_tests PRIVATE
+    omnidrop_adapters Qt6::Core)
+  add_test(NAME omnidrop_settings_history_tests
+           COMMAND omnidrop_settings_history_tests)
+
   add_executable(omnidrop_python_runtime_tests tests/python_runtime_tests.cpp)
   target_link_libraries(omnidrop_python_runtime_tests PRIVATE omnidrop_adapters Qt6::Core)
   add_test(NAME omnidrop_python_runtime_tests COMMAND omnidrop_python_runtime_tests)
@@ -142,6 +156,12 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
            COMMAND omnidrop_workflow_folder_watch_tests)
 
   if(TARGET omnidrop_cli)
+    add_executable(omnidrop_settings_cli_tests tests/settings_cli_tests.cpp)
+    target_link_libraries(omnidrop_settings_cli_tests PRIVATE Qt6::Core)
+    add_test(NAME omnidrop_settings_cli_tests
+             COMMAND omnidrop_settings_cli_tests "$<TARGET_FILE:omnidrop_cli>")
+    set_tests_properties(omnidrop_settings_cli_tests PROPERTIES TIMEOUT 75)
+
     add_executable(omnidrop_rename_transaction_cli_tests
       tests/rename_transaction_cli_tests.cpp)
     target_link_libraries(omnidrop_rename_transaction_cli_tests PRIVATE Qt6::Core)
@@ -219,6 +239,16 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
              COMMAND omnidrop_rename_preview_gui_tests)
     set_tests_properties(omnidrop_rename_preview_gui_tests PROPERTIES
       ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    add_executable(omnidrop_settings_gui_tests
+      tests/settings_dialog_tests.cpp
+      src/gui/settings_dialog.cpp
+      src/gui/settings_dialog.hpp)
+    target_link_libraries(omnidrop_settings_gui_tests PRIVATE
+      omnidrop_adapters Qt6::Widgets)
+    add_test(NAME omnidrop_settings_gui_tests COMMAND omnidrop_settings_gui_tests)
+    set_tests_properties(omnidrop_settings_gui_tests PROPERTIES
+      ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 
     add_executable(omnidrop_rename_history_gui_tests
       tests/rename_history_dialog_tests.cpp

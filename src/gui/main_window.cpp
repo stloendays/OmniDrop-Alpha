@@ -5,6 +5,7 @@
 #include "gui/workflow_dialog.hpp"
 #include "gui/rename_preview_dialog.hpp"
 #include "gui/rename_history_dialog.hpp"
+#include "gui/settings_dialog.hpp"
 
 #include "adapters/diagnostics_service.hpp"
 
@@ -154,6 +155,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   auto* workflowAction = toolsMenu->addAction("Workflow builder...");
   auto* renamePreviewAction = toolsMenu->addAction("Batch rename preview...");
   auto* renameHistoryAction = toolsMenu->addAction("Rename history and recovery...");
+  toolsMenu->addSeparator();
+  auto* settingsAction = toolsMenu->addAction("Preferences and backup...");
 
   auto* historyMenu = menuBar()->addMenu("History");
   historyMenu->addAction(renameHistoryAction);
@@ -191,6 +194,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   connect(renameHistoryAction, &QAction::triggered, this, [this] {
     auto* dialog = new RenameHistoryDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+  });
+  connect(settingsAction, &QAction::triggered, this, [this] {
+    auto* dialog = new SettingsDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &QDialog::finished, this, [this](int) {
+      refreshRecentFiles();
+      refreshHistory();
+    });
     dialog->show();
   });
   connect(translateButton, &QPushButton::clicked, this, openTranslation);

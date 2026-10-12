@@ -14,6 +14,7 @@ class RecentFilesStore {
   void clear() const;
 
  private:
+  int effectiveLimit() const;
   int maxEntries_{8};
 };
 

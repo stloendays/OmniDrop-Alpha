@@ -3,6 +3,7 @@
 #include "app/omnidrop_service.hpp"
 #include "app/rename_preview_service.hpp"
 #include "app/rename_transaction_service.hpp"
+#include "app/settings_service.hpp"
 #include "app/translation_service.hpp"
 #include "app/workflow_service.hpp"
 #include "app/workflow_job_service.hpp"
@@ -36,6 +37,12 @@ int usage() {
       << "  omnidrop-cli batch-actions <file> <file> [...]\n"
       << "  omnidrop-cli capabilities\n"
       << "  omnidrop-cli diagnostics\n"
+      << "  omnidrop-cli settings get\n"
+      << "  omnidrop-cli settings set recent_files_limit|activity_history_limit N\n"
+      << "  omnidrop-cli settings export <absolute-file.json>\n"
+      << "  omnidrop-cli settings import <absolute-file.json> --confirm\n"
+      << "  omnidrop-cli settings reset --confirm\n"
+      << "  omnidrop-cli settings recover --confirm\n"
       << "  omnidrop-cli run <action-id> <file>\n"
       << "  omnidrop-cli batch-run <action-id> <file> <file> [...]\n"
       << "  omnidrop-cli rename-preview --find PATTERN --replace TEXT [--regex] [--ignore-case] [--include-extension] <file> [...]\n"
@@ -130,6 +137,42 @@ int main(int argc, char* argv[]) {
     out << QString::fromUtf8(diagnostics.collectJson(QJsonDocument::Indented));
     return 0;
   }
+
+  if (command == "settings") {
+    if (args.size() < 3) return usage();
+    const omnidrop::SettingsService settings;
+    const QString operation = args.at(2);
+    omnidrop::SettingsResult result;
+    if (operation == "get" && args.size() == 3) {
+      result = settings.read();
+    } else if (operation == "set" && args.size() == 5) {
+      bool valid = false;
+      const int value = args.at(4).toInt(&valid);
+      if (!valid) {
+        err << "Settings value must be an integer.\n";
+        return 1;
+      }
+      result = settings.set(args.at(3), value);
+    } else if (operation == "export" && args.size() == 4) {
+      result = settings.exportTo(args.at(3));
+    } else if (operation == "import" && args.size() == 5 &&
+               args.at(4) == "--confirm") {
+      result = settings.importFrom(args.at(3), true);
+    } else if (operation == "reset" && args.size() == 4 &&
+               args.at(3) == "--confirm") {
+      result = settings.reset(true);
+    } else if (operation == "recover" && args.size() == 4 &&
+               args.at(3) == "--confirm") {
+      result = settings.recover(true);
+    } else {
+      err << "Unrecognized settings command or missing --confirm.\n";
+      return usage();
+    }
+    out << QJsonDocument(result.toJson()).toJson(QJsonDocument::Compact) << '\n';
+    if (!result.ok) err << result.error << '\n';
+    return result.ok ? 0 : 2;
+  }
+
 
   if (command == "translate" && args.size() >= 9) {
     omnidrop::TranslationRequest request;

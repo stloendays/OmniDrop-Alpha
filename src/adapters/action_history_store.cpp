@@ -1,4 +1,5 @@
 #include "adapters/action_history_store.hpp"
+#include "app/settings_service.hpp"
 
 #include <QDateTime>
 #include <QFileInfo>
@@ -13,10 +14,17 @@ constexpr auto kHistoryKey = "history/actions";
 
 ActionHistoryStore::ActionHistoryStore(int maxEntries) : maxEntries_(maxEntries) {}
 
+int ActionHistoryStore::effectiveLimit() const {
+  if (maxEntries_ > 0) return maxEntries_;
+  const auto settings = SettingsService{}.read();
+  return settings.ok ? settings.preferences.activityHistoryLimit : 20;
+}
+
 QStringList ActionHistoryStore::loadDisplayEntries() const {
   QSettings settings;
   const auto rows = settings.value(kHistoryKey).toStringList();
   QStringList display;
+  const int limit = effectiveLimit();
   for (const auto& row : rows) {
     const auto doc = QJsonDocument::fromJson(row.toUtf8());
     if (!doc.isObject()) continue;
@@ -27,6 +35,7 @@ QStringList ActionHistoryStore::loadDisplayEntries() const {
     const auto action = object.value("action").toString();
     const auto file = QFileInfo(object.value("path").toString()).fileName();
     display.push_back(QString("%1  %2  %3  -  %4").arg(timeText, state, action, file));
+    if (display.size() >= limit) break;
   }
   return display;
 }
@@ -43,7 +52,7 @@ void ActionHistoryStore::record(const QString& actionLabel, const QString& sourc
       {"detail", detail},
   };
   rows.prepend(QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact)));
-  while (rows.size() > maxEntries_) rows.removeLast();
+  while (rows.size() > effectiveLimit()) rows.removeLast();
   settings.setValue(kHistoryKey, rows);
 }
 
