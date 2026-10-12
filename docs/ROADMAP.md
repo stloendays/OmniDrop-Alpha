@@ -248,8 +248,9 @@ Next:
 - self-contained CPython 3.13 worker runtime for Windows x64: implemented in v0.3.0 Alpha;
 - signed installer/uninstaller;
 - portable package;
-- user-initiated, read-only GitHub release checks in GUI and CLI
-  (development source; see [Updates](UPDATES.md));
+- user-initiated, read-only GitHub release checks in GUI and CLI;
+- read-only local ZIP/SHA-256 verification and ZIP path screening in GUI/CLI,
+  with .git checkout protection (development source; see [Updates](UPDATES.md));
 - verified staged auto-update with stable/beta channels, installer identity,
   signed manifests and explicit rollback (not implemented yet);
 - cryptographic hashes and rollback;
