@@ -15,6 +15,7 @@
 #include <QColor>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFrame>
 #include <QFutureWatcher>
 #include <QHBoxLayout>
 #include <QJsonArray>
@@ -28,6 +29,8 @@
 #include <QMessageBox>
 #include <QPair>
 #include <QProgressBar>
+#include <QSplitter>
+#include <QSizePolicy>
 #include <QPushButton>
 #include <QStatusBar>
 #include <QVBoxLayout>
@@ -67,53 +70,122 @@ struct PerFileBatchExecution {
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   setWindowTitle(QString("OmniDrop %1").arg(OMNIDROP_VERSION));
-  resize(900, 720);
-  setMinimumSize(720, 560);
+  resize(1080, 740);
+  setMinimumSize(800, 570);
 
   auto* root = new QWidget(this);
+  root->setObjectName("workspaceRoot");
   auto* layout = new QVBoxLayout(root);
-  layout->setContentsMargins(28, 24, 28, 22);
+  layout->setContentsMargins(24, 20, 24, 16);
   layout->setSpacing(12);
 
+  // The quick actions and main workflow remain visible without opening menus.
   auto* header = new QHBoxLayout;
+  header->setSpacing(10);
+  auto* brandBlock = new QVBoxLayout;
+  brandBlock->setSpacing(2);
   auto* brand = new QLabel("OmniDrop", root);
   brand->setObjectName("brand");
-  header->addWidget(brand);
+  brandBlock->addWidget(brand);
+  auto* releaseLabel = new QLabel(
+      QString("LOCAL WORKSPACE   /   v%1").arg(OMNIDROP_VERSION), root);
+  releaseLabel->setObjectName("eyebrow");
+  brandBlock->addWidget(releaseLabel);
+  header->addLayout(brandBlock);
   header->addStretch();
-  auto* workflowButton = new QPushButton("Workflow...", root);
+  auto* workflowButton = new QPushButton("Workflow", root);
   workflowButton->setObjectName("secondaryButton");
+  workflowButton->setToolTip("Build and inspect reusable local workflows");
   header->addWidget(workflowButton);
-  auto* translateButton = new QPushButton("Translate...", root);
+  auto* translateButton = new QPushButton("Translate", root);
   translateButton->setObjectName("secondaryButton");
-  auto* openButton = new QPushButton("Open files", root);
+  translateButton->setToolTip("Translate text or subtitles with selected providers");
   header->addWidget(translateButton);
+  auto* openButton = new QPushButton("Open files", root);
+  openButton->setObjectName("openFilesButton");
+  openButton->setToolTip("Choose one or more local files (Ctrl+O)");
   header->addWidget(openButton);
   layout->addLayout(header);
 
-  dropZone_ = new DropZone(root);
-  layout->addWidget(dropZone_);
+  auto* intro = new QLabel("Select files to discover available actions", root);
+  intro->setObjectName("workspaceIntro");
+  layout->addWidget(intro);
 
-  recentTitle_ = new QLabel("Recent", root);
+  // Two independent, resizable surfaces keep the file selection and its
+  // applicable actions visible at the same time, even for long file lists.
+  auto* splitter = new QSplitter(Qt::Horizontal, root);
+  splitter->setObjectName("workspaceSplitter");
+  splitter->setChildrenCollapsible(false);
+  splitter->setHandleWidth(12);
+
+  auto* inputPane = new QFrame(splitter);
+  inputPane->setObjectName("inputPane");
+  auto* inputLayout = new QVBoxLayout(inputPane);
+  inputLayout->setContentsMargins(18, 16, 18, 16);
+  inputLayout->setSpacing(10);
+  auto* inputHeading = new QLabel("INPUT FILES", inputPane);
+  inputHeading->setObjectName("sectionTitle");
+  inputLayout->addWidget(inputHeading);
+  dropZone_ = new DropZone(inputPane);
+  dropZone_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+  inputLayout->addWidget(dropZone_, 1);
+  recentTitle_ = new QLabel("RECENT FILES", inputPane);
   recentTitle_->setObjectName("sectionTitle");
-  recentList_ = new QListWidget(root);
-  recentList_->setMaximumHeight(100);
-  layout->addWidget(recentTitle_);
-  layout->addWidget(recentList_);
+  recentList_ = new QListWidget(inputPane);
+  recentList_->setObjectName("recentFilesList");
+  recentList_->setMaximumHeight(138);
+  recentList_->setToolTip("Double-click to inspect a recent file");
+  inputLayout->addWidget(recentTitle_);
+  inputLayout->addWidget(recentList_);
 
-  fileTitle_ = new QLabel(root);
+  auto* actionPane = new QFrame(splitter);
+  actionPane->setObjectName("actionPane");
+  auto* actionLayout = new QVBoxLayout(actionPane);
+  actionLayout->setContentsMargins(18, 16, 18, 16);
+  actionLayout->setSpacing(10);
+  auto* actionHeading = new QLabel("AVAILABLE ACTIONS", actionPane);
+  actionHeading->setObjectName("sectionTitle");
+  actionLayout->addWidget(actionHeading);
+
+  fileTitle_ = new QLabel(actionPane);
   fileTitle_->setObjectName("fileTitle");
-  fileMeta_ = new QLabel(root);
+  fileMeta_ = new QLabel(actionPane);
   fileMeta_->setObjectName("muted");
-  actionSearch_ = new QLineEdit(root);
-  actionSearch_->setPlaceholderText("Search actions");
+  fileMeta_->setWordWrap(true);
+  actionSummary_ = new QLabel("No files selected", actionPane);
+  actionSummary_->setObjectName("actionSummary");
+  actionLayout->addWidget(fileTitle_);
+  actionLayout->addWidget(fileMeta_);
+  actionLayout->addWidget(actionSummary_);
+
+  actionSearch_ = new QLineEdit(actionPane);
+  actionSearch_->setObjectName("actionSearch");
+  actionSearch_->setPlaceholderText("Find an action by name or ID  (Ctrl+F)");
   actionSearch_->setClearButtonEnabled(true);
-  actionList_ = new QListWidget(root);
-  runButton_ = new QPushButton("Select an action", root);
+  actionLayout->addWidget(actionSearch_);
+
+  emptyActionHint_ = new QLabel(
+      "Choose local files or drag them into the workspace.\n"
+      "OmniDrop will show applicable actions before processing.", actionPane);
+  emptyActionHint_->setObjectName("actionEmptyState");
+  emptyActionHint_->setWordWrap(true);
+  emptyActionHint_->setAlignment(Qt::AlignCenter);
+  actionLayout->addWidget(emptyActionHint_, 1);
+
+  actionList_ = new QListWidget(actionPane);
+  actionList_->setObjectName("actionList");
+  actionList_->setToolTip("Unavailable actions are shown in grey; hover for details");
+  actionLayout->addWidget(actionList_, 1);
+
+  runButton_ = new QPushButton("Select an action", actionPane);
+  runButton_->setObjectName("runActionButton");
   runButton_->setEnabled(false);
-  stopButton_ = new QPushButton("Stop after current file", root);
+  runButton_->setToolTip("Run the selected available action (Ctrl+Return)");
+  stopButton_ = new QPushButton("Stop after current file", actionPane);
   stopButton_->setObjectName("secondaryButton");
   stopButton_->hide();
-  progressBar_ = new QProgressBar(root);
+  progressBar_ = new QProgressBar(actionPane);
+  progressBar_->setObjectName("batchProgress");
   progressBar_->setTextVisible(true);
   progressBar_->hide();
 
@@ -121,17 +193,20 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   actionControls->addWidget(progressBar_, 1);
   actionControls->addWidget(stopButton_);
   actionControls->addWidget(runButton_);
+  actionLayout->addLayout(actionControls);
 
-  layout->addWidget(fileTitle_);
-  layout->addWidget(fileMeta_);
-  layout->addWidget(actionSearch_);
-  layout->addWidget(actionList_, 1);
-  layout->addLayout(actionControls);
+  splitter->addWidget(inputPane);
+  splitter->addWidget(actionPane);
+  splitter->setStretchFactor(0, 4);
+  splitter->setStretchFactor(1, 6);
+  splitter->setSizes({410, 610});
+  layout->addWidget(splitter, 1);
 
-  historyTitle_ = new QLabel("Activity", root);
+  historyTitle_ = new QLabel("RECENT ACTIVITY", root);
   historyTitle_->setObjectName("sectionTitle");
   historyList_ = new QListWidget(root);
-  historyList_->setMaximumHeight(100);
+  historyList_->setObjectName("activityList");
+  historyList_->setMaximumHeight(108);
   layout->addWidget(historyTitle_);
   layout->addWidget(historyList_);
 
@@ -264,17 +339,36 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   });
 
   setStyleSheet(R"(
-    QMainWindow, QWidget { background:#f5f5f5; color:#111; font-family:"Segoe UI"; font-size:14px; }
-    QLabel#brand { font-size:24px; font-weight:650; }
-    QLabel#sectionTitle { color:#666; font-size:12px; font-weight:600; }
-    QLabel#fileTitle { font-size:18px; font-weight:600; }
-    QLabel#muted, QStatusBar { color:#666; }
-    QListWidget, QLineEdit { background:#fff; border:1px solid #d8d8d8; border-radius:8px; padding:6px; }
-    QPushButton { background:#111; color:#fff; border:0; border-radius:8px; min-height:36px; padding:0 14px; }
-    QPushButton#secondaryButton { background:#e4e4e4; color:#111; border:1px solid #c8c8c8; }
-    QPushButton:disabled { background:#d0d0d0; color:#777; }
-    QProgressBar { background:#fff; border:1px solid #d8d8d8; border-radius:6px; text-align:center; min-height:28px; }
-    QProgressBar::chunk { background:#555; border-radius:5px; }
+    QMainWindow, QWidget#workspaceRoot { background: #f5f5f5; color: #171717; font-family: "Segoe UI"; font-size: 13px; }
+    QMenuBar, QMenu { background: #f5f5f5; color: #171717; }
+    QMenuBar::item:selected, QMenu::item:selected { background: #e8e8e8; }
+    QLabel#brand { font-size: 25px; font-weight: 700; }
+    QLabel#eyebrow { font-size: 10px; color: #717171; font-weight: 600; }
+    QLabel#workspaceIntro { font-size: 14px; color: #555; }
+    QLabel#sectionTitle { color: #626262; font-size: 11px; font-weight: 700; }
+    QLabel#fileTitle { font-size: 18px; font-weight: 650; }
+    QLabel#muted, QLabel#actionSummary { color: #6a6a6a; }
+    QLabel#actionEmptyState { color: #747474; padding: 20px; }
+    QFrame#inputPane, QFrame#actionPane { background: #fff; border: 1px solid #dedede; border-radius: 11px; }
+    QFrame#dropZone { background: #f9f9f9; border: 1px dashed #bcbcbc; border-radius: 10px; }
+    QFrame#dropZone[dragActive="true"] { background: #ededed; border: 2px dashed #555; }
+    QLabel#dropTitle { font-size: 18px; font-weight: 650; }
+    QLabel#dropSubtitle { font-size: 12px; color: #747474; }
+    QListWidget, QLineEdit { background: #fff; border: 1px solid #dadada; border-radius: 7px; padding: 6px; }
+    QListWidget::item { min-height: 25px; padding: 3px 5px; }
+    QListWidget::item:selected { color: #111; background: #e8e8e8; border-radius: 4px; }
+    QListWidget::item:hover { background: #f2f2f2; }
+    QLineEdit:focus, QListWidget:focus { border: 1px solid #666; }
+    QPushButton { background: #202020; color: #fff; border: 1px solid #202020; border-radius: 7px; min-height: 34px; padding: 0 14px; font-weight: 600; }
+    QPushButton#secondaryButton { background: #f1f1f1; color: #292929; border: 1px solid #d5d5d5; }
+    QPushButton:hover:!disabled { background: #444; color: #fff; }
+    QPushButton#secondaryButton:hover:!disabled { background: #e5e5e5; color: #151515; }
+    QPushButton:focus { border: 2px solid #777; }
+    QPushButton:disabled { background: #d8d8d8; border-color: #d8d8d8; color: #777; }
+    QSplitter::handle { background: #f5f5f5; }
+    QProgressBar { background: #eee; border: 1px solid #dadada; border-radius: 5px; text-align: center; min-height: 27px; }
+    QProgressBar::chunk { background: #666; border-radius: 4px; }
+    QStatusBar { background: #f5f5f5; color: #555; }
   )");
 
   refreshRecentFiles();
