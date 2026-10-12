@@ -21,11 +21,12 @@ int main(int argc, char** argv) {
   auto* installed = dialog.findChild<QLabel*>("updateCurrentVersion");
   auto* check = dialog.findChild<QPushButton*>("updateCheckNow");
   auto* browse = dialog.findChild<QPushButton*>("updateOpenRelease");
+  auto* verify = dialog.findChild<QPushButton*>("updateVerifyLocalZip");
   auto* channel = dialog.findChild<QComboBox*>("updateChannel");
-  assert(status && installed && check && browse && channel);
+  assert(status && installed && check && browse && verify && channel);
   assert(installed->text().contains(OMNIDROP_VERSION));
   assert(status->text() == "No network request has been sent.");
-  assert(check->isEnabled() && !browse->isEnabled());
+  assert(check->isEnabled() && verify->isEnabled() && !browse->isEnabled());
   assert(channel->count() == 2);
   assert(channel->itemData(0).toString() == "alpha");
   assert(channel->itemData(1).toString() == "stable");
@@ -35,5 +36,7 @@ int main(int argc, char** argv) {
   QApplication::processEvents();
   assert(status->text() == "No network request has been sent.");
   assert(!browse->isEnabled());
+  assert(verify->toolTip().contains("read-only", Qt::CaseInsensitive) ||
+         verify->toolTip().contains("Read-only"));
   return 0;
 }
