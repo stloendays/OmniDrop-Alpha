@@ -18,6 +18,8 @@ struct LocalUpdatePreflightResult {
   qint64 archiveBytes{0};
   int entryCount{0};
   bool targetSafe{false};
+  bool checksumMatched{false};
+  bool zipPathsChecked{false};
   QJsonObject toJson() const;
 };
 
