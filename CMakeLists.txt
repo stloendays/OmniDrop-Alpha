@@ -199,6 +199,12 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
       PASS_REGULAR_EXPRESSION "^${PROJECT_VERSION}"
     )
 
+    # Must reject unsupported channels *before* any network request.
+    add_test(NAME omnidrop_cli_update_check_invalid_channel
+             COMMAND omnidrop_cli update-check --channel unsupported)
+    set_tests_properties(omnidrop_cli_update_check_invalid_channel PROPERTIES
+      WILL_FAIL TRUE TIMEOUT 10)
+
     add_executable(omnidrop_workflow_folder_cli_tests
       tests/workflow_folder_watch_cli_tests.cpp)
     target_link_libraries(omnidrop_workflow_folder_cli_tests PRIVATE omnidrop_adapters Qt6::Core)
