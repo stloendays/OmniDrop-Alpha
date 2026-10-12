@@ -6,6 +6,7 @@
 #include <QFutureWatcher>
 #include <QHeaderView>
 #include <QHBoxLayout>
+#include <QItemSelectionModel>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
@@ -128,8 +129,10 @@ RenameHistoryDialog::RenameHistoryDialog(QWidget* parent,
 }
 
 QString RenameHistoryDialog::selectedTransactionId() const {
-  const int row = transactions_->currentRow();
-  if (row < 0 || !transactions_->item(row, 0)) return {};
+  const auto rows = transactions_->selectionModel()->selectedRows();
+  if (rows.isEmpty()) return {};
+  const int row = rows.first().row();
+  if (!transactions_->item(row, 0)) return {};
   return transactions_->item(row, 0)->data(Qt::UserRole).toString();
 }
 
