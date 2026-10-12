@@ -260,7 +260,7 @@ void RenameHistoryDialog::showSelectedTransaction() {
           QString::number(static_cast<qint64>(
               row.value("size_bytes").toDouble()))));
     }
-    summary_->setText(lastOutcome_.isEmpty()
+    summary_->setText(lastOutcome_.isEmpty() || lastOutcomeId_ != id
         ? "Select an enabled operation to review its confirmation."
         : lastOutcome_);
     enableActions(result);
@@ -309,6 +309,7 @@ void RenameHistoryDialog::runSelectedOperation(const QString& operation) {
           this, [this, watcher, operation] {
     const auto result = watcher->result();
     watcher->deleteLater();
+    lastOutcomeId_ = result.transactionId;
     lastOutcome_ = result.ok
         ? QString("%1 completed after verification. Transaction: %2")
               .arg(operation, result.transactionId)
