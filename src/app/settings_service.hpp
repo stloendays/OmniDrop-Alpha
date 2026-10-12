@@ -31,6 +31,7 @@ class SettingsService {
   explicit SettingsService(QString filePath = {});
 
   SettingsResult read() const;
+  SettingsResult update(const AppPreferences& preferences) const;
   SettingsResult set(const QString& key, int value) const;
   SettingsResult exportTo(const QString& absolutePath) const;
   SettingsResult importFrom(const QString& absolutePath,
