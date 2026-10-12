@@ -43,8 +43,8 @@ class MainWindow final : public QMainWindow {
 
   OmniDropService service_;
   PythonWorkerClient worker_;
-  RecentFilesStore recentFiles_;
-  ActionHistoryStore history_;
+  RecentFilesStore recentFiles_{0};
+  ActionHistoryStore history_{0};
   BatchInspection currentBatch_;
   QSet<QString> runtimeCapabilities_;
   bool capabilityProbeComplete_{false};
