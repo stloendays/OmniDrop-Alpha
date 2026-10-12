@@ -35,6 +35,7 @@ class RenameHistoryDialog final : public QDialog {
   RenameTransactionService service_;
   bool busy_{false};
   QString lastOutcome_;
+  QString lastOutcomeId_;
   QTableWidget* transactions_{nullptr};
   QTableWidget* details_{nullptr};
   QLabel* summary_{nullptr};
