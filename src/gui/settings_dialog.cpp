@@ -27,8 +27,9 @@ SettingsDialog::SettingsDialog(QWidget* parent)
 
   auto* explanation = new QLabel(
       "Preferences are local to this computer. Export saves only the two "
-      "values below; existing recent-file and activity records, Jobs, "
-      "rename journals, models and credentials are not changed or exported.",
+      "values below; recent-file and Activity records, Jobs, rename "
+      "journals, models and credentials are not part of the backup. "
+      "Lower limits affect visible history and future retention.",
       this);
   explanation->setWordWrap(true);
   explanation->setObjectName("settingsExplanation");
