@@ -1,4 +1,5 @@
 #include "adapters/diagnostics_service.hpp"
+#include "adapters/github_release_client.hpp"
 #include "adapters/python_worker_client.hpp"
 #include "app/omnidrop_service.hpp"
 #include "app/rename_preview_service.hpp"
@@ -37,6 +38,7 @@ int usage() {
       << "  omnidrop-cli batch-actions <file> <file> [...]\n"
       << "  omnidrop-cli capabilities\n"
       << "  omnidrop-cli diagnostics\n"
+      << "  omnidrop-cli update-check [--channel alpha|stable]\n"
       << "  omnidrop-cli settings get\n"
       << "  omnidrop-cli settings set recent_files_limit|activity_history_limit N\n"
       << "  omnidrop-cli settings export <absolute-file.json>\n"
@@ -136,6 +138,26 @@ int main(int argc, char* argv[]) {
     omnidrop::DiagnosticsService diagnostics;
     out << QString::fromUtf8(diagnostics.collectJson(QJsonDocument::Indented));
     return 0;
+  }
+
+  // Explicit opt-in only. No automatic network call on startup, and the
+  // command cannot stage, install, or overwrite a release package.
+  if (command == "update-check") {
+    QString channel = "alpha";
+    if (args.size() == 4 && args.at(2) == "--channel") {
+      channel = args.at(3);
+    } else if (args.size() != 2) {
+      return usage();
+    }
+    if (!omnidrop::UpdateCheckService::validChannel(channel)) {
+      err << "Channel must be alpha or stable.\n";
+      return 1;
+    }
+    const auto result = omnidrop::GitHubReleaseClient::check(
+        OMNIDROP_VERSION, channel);
+    out << QJsonDocument(result.toJson()).toJson(QJsonDocument::Compact) << '\n';
+    if (!result.ok) err << result.error << '\n';
+    return result.ok ? 0 : 2;
   }
 
   if (command == "settings") {
