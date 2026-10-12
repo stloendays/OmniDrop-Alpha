@@ -194,6 +194,12 @@ SettingsResult SettingsService::read() const {
                        loaded.preferences);
 }
 
+SettingsResult SettingsService::update(const AppPreferences& preferences) const {
+  if (!validRange(preferences))
+    return errorResult("settings.update", "Settings values exceed allowed limits.");
+  return save(preferences, "settings.update");
+}
+
 SettingsResult SettingsService::set(const QString& key, int value) const {
   AppPreferences update;
   if (key == "recent_files_limit") update.recentFilesLimit = value;
