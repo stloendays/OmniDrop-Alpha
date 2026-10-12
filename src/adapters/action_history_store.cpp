@@ -24,6 +24,7 @@ QStringList ActionHistoryStore::loadDisplayEntries() const {
   QSettings settings;
   const auto rows = settings.value(kHistoryKey).toStringList();
   QStringList display;
+  const int limit = effectiveLimit();
   for (const auto& row : rows) {
     const auto doc = QJsonDocument::fromJson(row.toUtf8());
     if (!doc.isObject()) continue;
@@ -34,7 +35,7 @@ QStringList ActionHistoryStore::loadDisplayEntries() const {
     const auto action = object.value("action").toString();
     const auto file = QFileInfo(object.value("path").toString()).fileName();
     display.push_back(QString("%1  %2  %3  -  %4").arg(timeText, state, action, file));
-    if (display.size() >= effectiveLimit()) break;
+    if (display.size() >= limit) break;
   }
   return display;
 }
