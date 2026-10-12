@@ -222,6 +222,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
   auto* fileMenu = menuBar()->addMenu("File");
   auto* openAction = fileMenu->addAction("Open files...");
+  openAction->setShortcut(QKeySequence::Open);
   fileMenu->addSeparator();
   auto* quitAction = fileMenu->addAction("Exit");
 
@@ -288,6 +289,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   connect(dropZone_, &DropZone::filesDropped, this, [this](const QStringList& paths) {
     inspectPaths(paths);
   });
+  connect(dropZone_, &DropZone::filesRejected, this, [this](const QString& reason) {
+    statusLabel_->setText(reason);
+  });
   connect(recentList_, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
     inspectPath(item->data(Qt::UserRole).toString());
   });
@@ -326,6 +330,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     QMessageBox::about(this, "About OmniDrop",
       QString("<b>OmniDrop %1</b><br><br>Local-first file utilities. Core operations do not require an account or file upload.")
         .arg(OMNIDROP_VERSION));
+  });
+
+  auto* runShortcut = new QAction(this);
+  runShortcut->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Return));
+  addAction(runShortcut);
+  connect(runShortcut, &QAction::triggered, this, [this] {
+    if (!operationRunning_ && runButton_->isEnabled()) runSelectedAction();
   });
 
   auto* findAction = new QAction(this);
@@ -478,6 +489,7 @@ void MainWindow::showBatchInspection(const BatchInspection& inspection) {
   fileMeta_->show();
   actionSearch_->show();
   actionList_->show();
+  emptyActionHint_->hide();
   runButton_->show();
   actionList_->clear();
 
@@ -505,14 +517,33 @@ void MainWindow::showBatchInspection(const BatchInspection& inspection) {
 void MainWindow::filterActions(const QString& query) {
   const auto needle = query.trimmed();
   int first = -1;
+  int matches = 0;
+  int ready = 0;
   for (int row = 0; row < currentBatch_.actions.size(); ++row) {
     const auto& action = currentBatch_.actions.at(row);
-    const bool match = needle.isEmpty() || action.label.contains(needle, Qt::CaseInsensitive) ||
-      action.description.contains(needle, Qt::CaseInsensitive) || action.id.contains(needle, Qt::CaseInsensitive);
+    const bool match = needle.isEmpty() ||
+        action.label.contains(needle, Qt::CaseInsensitive) ||
+        action.description.contains(needle, Qt::CaseInsensitive) ||
+        action.id.contains(needle, Qt::CaseInsensitive);
     actionList_->item(row)->setHidden(!match);
-    if (match && action.available && first < 0) first = row;
+    if (!match) continue;
+    ++matches;
+    if (action.available) {
+      ++ready;
+      if (first < 0) first = row;
+    }
   }
   actionList_->setCurrentRow(first);
+  if (currentBatch_.paths.isEmpty()) return;
+
+  actionSummary_->setText(
+      QString("%1 matching actions   /   %2 available").arg(matches).arg(ready));
+  const bool empty = matches == 0;
+  emptyActionHint_->setText(empty
+      ? "No actions match this search. Try a different name or action ID."
+      : QString{});
+  emptyActionHint_->setVisible(empty);
+  actionList_->setVisible(!empty);
 }
 
 void MainWindow::setOperationRunning(bool running, bool cancellable, int totalItems) {
