@@ -6,6 +6,7 @@
 #include "gui/settings_dialog.hpp"
 
 #include <QApplication>
+#include <QFile>
 #include <QLabel>
 #include <QPushButton>
 #include <QSpinBox>
