@@ -42,7 +42,8 @@ class SettingsService {
 
  private:
   SettingsResult save(const AppPreferences& settings,
-                      const QString& operation) const;
+                      const QString& operation,
+                      const QString& singleKey = {}) const;
   QString filePath_;
 };
 
