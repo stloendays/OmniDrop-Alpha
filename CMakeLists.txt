@@ -220,6 +220,26 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   endif()
 
   if(OMNIDROP_BUILD_GUI)
+    add_executable(omnidrop_workspace_gui_tests
+      tests/workspace_gui_tests.cpp
+      src/gui/main_window.cpp
+      src/gui/main_window.hpp
+      src/gui/drop_zone.cpp
+      src/gui/drop_zone.hpp
+      src/gui/workflow_dialog.cpp
+      src/gui/workflow_graph_view.cpp
+      src/gui/translation_dialog.cpp
+      src/gui/rename_preview_dialog.cpp
+      src/gui/rename_history_dialog.cpp
+      src/gui/settings_dialog.cpp)
+    target_link_libraries(omnidrop_workspace_gui_tests PRIVATE
+      omnidrop_core omnidrop_adapters omnidrop_desktop
+      Qt6::Widgets Qt6::Concurrent)
+    add_test(NAME omnidrop_workspace_gui_tests
+             COMMAND omnidrop_workspace_gui_tests)
+    set_tests_properties(omnidrop_workspace_gui_tests PROPERTIES
+      ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 75)
+
     add_executable(omnidrop_graph_view_tests
       tests/workflow_graph_view_tests.cpp
       src/gui/workflow_graph_view.cpp
