@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
 
   using omnidrop::LocalUpdatePreflightService;
   auto r = LocalUpdatePreflightService::verify(zipPath, checksum, install);
-  assert(r.ok && r.targetSafe);
+  assert(r.ok && r.targetSafe && r.checksumMatched && r.zipPathsChecked);
   assert(r.packageVersion == "0.5.0");
   assert(r.entryCount == safe.size());
   assert(r.archiveBytes == zip.size());
@@ -174,6 +174,7 @@ int main(int argc, char** argv) {
   archive.close();
   r = LocalUpdatePreflightService::verify(zipPath, checksum, install);
   assert(!r.ok && r.error.contains("SHA-256"));
+  assert(!r.checksumMatched && !r.zipPathsChecked);
   writePackage(zipPath, checksum, zip);
 
   // Matching the SHA alone cannot make an unsafe ZIP acceptable.
@@ -190,6 +191,7 @@ int main(int argc, char** argv) {
     writePackage(zipPath, checksum, zipBytes(entries));
     r = LocalUpdatePreflightService::verify(zipPath, checksum, install);
     assert(!r.ok);
+    assert(r.checksumMatched && !r.zipPathsChecked);
     assert(!r.error.isEmpty());
   }
 
