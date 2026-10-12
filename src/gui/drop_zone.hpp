@@ -15,6 +15,7 @@ class DropZone final : public QFrame {
 
  signals:
   void filesDropped(const QStringList& paths);
+  void filesRejected(const QString& reason);
 
  protected:
   void dragEnterEvent(QDragEnterEvent* event) override;
