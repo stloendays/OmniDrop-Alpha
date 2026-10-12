@@ -248,8 +248,8 @@ QJsonObject LocalUpdatePreflightResult::toJson() const {
       {"entry_count", entryCount},
       {"target_safe", targetSafe},
       {"error", error},
-      {"checksum_matches", ok},
-      {"zip_paths_checked", ok},
+      {"checksum_matches", checksumMatched},
+      {"zip_paths_checked", zipPathsChecked},
       {"publisher_authenticated", false},
       {"auto_install_supported", false},
   };
@@ -371,11 +371,13 @@ LocalUpdatePreflightResult LocalUpdatePreflightService::verify(
     result.error = "SHA-256 does not match the supplied checksum file.";
     return result;
   }
+  result.checksumMatched = true;
   const QString zipError = inspectZip(zipPath, &result.entryCount);
   if (!zipError.isEmpty()) {
     result.error = zipError;
     return result;
   }
+  result.zipPathsChecked = true;
   result.ok = true;
   result.state = "passed_local_preflight";
   return result;
