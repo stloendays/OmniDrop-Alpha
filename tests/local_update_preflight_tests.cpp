@@ -9,6 +9,8 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QProcess>
 #include <QList>
 #include <QTemporaryDir>
 
@@ -144,6 +146,22 @@ int main(int argc, char** argv) {
   assert(r.toJson().value("state").toString() == "passed_local_preflight");
   assert(!r.toJson().value("publisher_authenticated").toBool(true));
   assert(!r.toJson().value("auto_install_supported").toBool(true));
+
+  // CLI and GUI use this same local service; verify the headless JSON
+  // contract end-to-end when a CLI target is available.
+  if (argc >= 2) {
+    QProcess process;
+    process.start(QString::fromLocal8Bit(argv[1]),
+                  {"update-verify", zipPath, checksum, "--install-dir", install});
+    assert(process.waitForStarted(5000));
+    assert(process.waitForFinished(12000));
+    assert(process.exitCode() == 0);
+    const auto json = QJsonDocument::fromJson(
+        process.readAllStandardOutput()).object();
+    assert(json.value("ok").toBool());
+    assert(json.value("package_version").toString() == "0.5.0");
+    assert(!json.value("publisher_authenticated").toBool(true));
+  }
 
   // Even if the ZIP is edited after the checksum is published, no success.
   QFile archive(zipPath);
