@@ -27,6 +27,7 @@ add_library(omnidrop_core
   src/app/rename_preview_service.cpp
   src/app/rename_transaction_service.cpp
   src/app/update_check_service.cpp
+  src/app/local_update_preflight_service.cpp
 )
 
 target_include_directories(omnidrop_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -126,6 +127,14 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   add_executable(omnidrop_diagnostics_tests tests/diagnostics_tests.cpp)
   target_link_libraries(omnidrop_diagnostics_tests PRIVATE omnidrop_core Qt6::Core)
   add_test(NAME omnidrop_diagnostics_tests COMMAND omnidrop_diagnostics_tests)
+
+  add_executable(omnidrop_local_update_preflight_tests
+    tests/local_update_preflight_tests.cpp)
+  target_link_libraries(omnidrop_local_update_preflight_tests PRIVATE
+    omnidrop_core Qt6::Core)
+  add_test(NAME omnidrop_local_update_preflight_tests
+    COMMAND omnidrop_local_update_preflight_tests)
+  set_tests_properties(omnidrop_local_update_preflight_tests PROPERTIES TIMEOUT 45)
 
   add_executable(omnidrop_update_check_tests tests/update_check_service_tests.cpp)
   target_link_libraries(omnidrop_update_check_tests PRIVATE omnidrop_core Qt6::Core)
