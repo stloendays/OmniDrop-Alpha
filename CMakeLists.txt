@@ -13,7 +13,7 @@ option(OMNIDROP_BUILD_GUI "Build the Qt desktop application" ON)
 option(OMNIDROP_BUILD_CLI "Build the command-line application" ON)
 option(OMNIDROP_BUILD_TESTS "Build tests" ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Network)
 if(OMNIDROP_BUILD_GUI)
   find_package(Qt6 6.5 REQUIRED COMPONENTS Widgets Concurrent Network)
 endif()
@@ -26,6 +26,7 @@ add_library(omnidrop_core
   src/app/omnidrop_service.cpp
   src/app/rename_preview_service.cpp
   src/app/rename_transaction_service.cpp
+  src/app/update_check_service.cpp
 )
 
 target_include_directories(omnidrop_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -43,9 +44,10 @@ add_library(omnidrop_adapters
   src/app/workflow_folder_watch_service.cpp
   src/adapters/recent_files_store.cpp
   src/adapters/action_history_store.cpp
+  src/adapters/github_release_client.cpp
 )
 target_include_directories(omnidrop_adapters PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(omnidrop_adapters PUBLIC omnidrop_core Qt6::Core)
+target_link_libraries(omnidrop_adapters PUBLIC omnidrop_core Qt6::Core Qt6::Network)
 
 if(OMNIDROP_BUILD_GUI)
   add_library(omnidrop_desktop
@@ -66,6 +68,8 @@ if(OMNIDROP_BUILD_GUI)
     src/gui/rename_history_dialog.hpp
     src/gui/settings_dialog.cpp
     src/gui/settings_dialog.hpp
+    src/gui/update_check_dialog.cpp
+    src/gui/update_check_dialog.hpp
     src/gui/workflow_graph_view.cpp
     src/gui/workflow_graph_view.hpp
     src/gui/drop_zone.cpp
@@ -122,6 +126,10 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   add_executable(omnidrop_diagnostics_tests tests/diagnostics_tests.cpp)
   target_link_libraries(omnidrop_diagnostics_tests PRIVATE omnidrop_core Qt6::Core)
   add_test(NAME omnidrop_diagnostics_tests COMMAND omnidrop_diagnostics_tests)
+
+  add_executable(omnidrop_update_check_tests tests/update_check_service_tests.cpp)
+  target_link_libraries(omnidrop_update_check_tests PRIVATE omnidrop_core Qt6::Core)
+  add_test(NAME omnidrop_update_check_tests COMMAND omnidrop_update_check_tests)
 
   add_executable(omnidrop_settings_tests tests/settings_service_tests.cpp)
   target_link_libraries(omnidrop_settings_tests PRIVATE omnidrop_adapters Qt6::Core)
@@ -231,7 +239,8 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
       src/gui/translation_dialog.cpp
       src/gui/rename_preview_dialog.cpp
       src/gui/rename_history_dialog.cpp
-      src/gui/settings_dialog.cpp)
+      src/gui/settings_dialog.cpp
+      src/gui/update_check_dialog.cpp)
     target_link_libraries(omnidrop_workspace_gui_tests PRIVATE
       omnidrop_core omnidrop_adapters omnidrop_desktop
       Qt6::Widgets Qt6::Concurrent)
@@ -239,6 +248,16 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
              COMMAND omnidrop_workspace_gui_tests)
     set_tests_properties(omnidrop_workspace_gui_tests PROPERTIES
       ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 75)
+
+    add_executable(omnidrop_update_dialog_tests
+      tests/update_check_dialog_tests.cpp
+      src/gui/update_check_dialog.cpp)
+    target_link_libraries(omnidrop_update_dialog_tests PRIVATE
+      omnidrop_core omnidrop_adapters Qt6::Widgets Qt6::Concurrent)
+    add_test(NAME omnidrop_update_dialog_tests
+             COMMAND omnidrop_update_dialog_tests)
+    set_tests_properties(omnidrop_update_dialog_tests PROPERTIES
+      ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 
     add_executable(omnidrop_graph_view_tests
       tests/workflow_graph_view_tests.cpp
