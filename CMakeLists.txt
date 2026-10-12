@@ -127,6 +127,13 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
   target_link_libraries(omnidrop_settings_tests PRIVATE omnidrop_adapters Qt6::Core)
   add_test(NAME omnidrop_settings_tests COMMAND omnidrop_settings_tests)
 
+  add_executable(omnidrop_settings_history_tests
+    tests/settings_history_integration_tests.cpp)
+  target_link_libraries(omnidrop_settings_history_tests PRIVATE
+    omnidrop_adapters Qt6::Core)
+  add_test(NAME omnidrop_settings_history_tests
+           COMMAND omnidrop_settings_history_tests)
+
   add_executable(omnidrop_python_runtime_tests tests/python_runtime_tests.cpp)
   target_link_libraries(omnidrop_python_runtime_tests PRIVATE omnidrop_adapters Qt6::Core)
   add_test(NAME omnidrop_python_runtime_tests COMMAND omnidrop_python_runtime_tests)
