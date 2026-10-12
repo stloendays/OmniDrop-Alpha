@@ -132,8 +132,13 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
     tests/local_update_preflight_tests.cpp)
   target_link_libraries(omnidrop_local_update_preflight_tests PRIVATE
     omnidrop_core Qt6::Core)
-  add_test(NAME omnidrop_local_update_preflight_tests
-    COMMAND omnidrop_local_update_preflight_tests)
+  if(TARGET omnidrop_cli)
+    add_test(NAME omnidrop_local_update_preflight_tests
+      COMMAND omnidrop_local_update_preflight_tests "$<TARGET_FILE:omnidrop_cli>")
+  else()
+    add_test(NAME omnidrop_local_update_preflight_tests
+      COMMAND omnidrop_local_update_preflight_tests)
+  endif()
   set_tests_properties(omnidrop_local_update_preflight_tests PROPERTIES TIMEOUT 45)
 
   add_executable(omnidrop_update_check_tests tests/update_check_service_tests.cpp)
