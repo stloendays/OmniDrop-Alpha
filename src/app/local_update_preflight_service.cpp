@@ -60,8 +60,12 @@ QString validateZipPath(const QByteArray& raw, quint16 flags, bool* directory) {
   if (raw.isEmpty() || raw.size() > 4096 || raw.contains('\0')) return {};
   const QString text = QString::fromUtf8(raw);
   // Reject undecodable names, ambiguous legacy codepages and Windows aliases.
-  if (text.toUtf8() != raw || (! (flags & 0x0800) &&
-      raw.contains(char(0x80)))) return {};
+  if (text.toUtf8() != raw) return {};
+  if (!(flags & 0x0800)) {
+    for (const unsigned char byte : raw) {
+      if (byte >= 128) return {};
+    }
+  }
   if (text.startsWith('/') || text.startsWith('\\') ||
       text.contains('\\')) return {};
   *directory = text.endsWith('/');
@@ -118,7 +122,6 @@ QString inspectZip(const QString& path, int* entries) {
   if (!archive.seek(centralOffset)) return "Cannot read ZIP central directory.";
 
   for (int index = 0; index < count; ++index) {
-    const qint64 centralPosition = archive.pos();
     QByteArray header;
     if (!readExact(archive, 46, &header) ||
         le32(header, 0) != kCentralHeader)
@@ -152,7 +155,8 @@ QString inspectZip(const QString& path, int* entries) {
         !readExact(archive, extraLength, &extra) ||
         !archive.seek(archive.pos() + commentLength))
       return "ZIP entry metadata is truncated.";
-    for (int n = 0; n + 4 <= extra.size();) {
+    int n = 0;
+    for (; n + 4 <= extra.size();) {
       const quint16 key = le16(extra, n);
       const quint16 size = le16(extra, n + 2);
       if (n + 4 + size > extra.size())
@@ -160,6 +164,7 @@ QString inspectZip(const QString& path, int* entries) {
       if (key == 1) return "ZIP64 extra fields are not supported.";
       n += 4 + size;
     }
+    if (n != extra.size()) return "Invalid ZIP extra-field trailer.";
 
     bool directory = false;
     const QString filename = validateZipPath(name, flags, &directory);
@@ -208,7 +213,6 @@ QString inspectZip(const QString& path, int* entries) {
       return "ZIP local header disagrees with the directory.";
     if (!archive.seek(nextCentral))
       return "Cannot resume ZIP central directory.";
-    Q_UNUSED(centralPosition);
   }
 
   if (quint64(archive.pos()) !=
