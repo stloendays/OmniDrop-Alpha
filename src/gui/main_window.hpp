@@ -54,6 +54,8 @@ class MainWindow final : public QMainWindow {
   DropZone* dropZone_{nullptr};
   QLabel* fileTitle_{nullptr};
   QLabel* fileMeta_{nullptr};
+  QLabel* actionSummary_{nullptr};
+  QLabel* emptyActionHint_{nullptr};
   QLineEdit* actionSearch_{nullptr};
   QListWidget* actionList_{nullptr};
   QListWidget* recentList_{nullptr};
