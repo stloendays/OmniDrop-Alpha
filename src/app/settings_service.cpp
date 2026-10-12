@@ -132,6 +132,23 @@ QString writeAtomic(const QString& path, const QByteArray& payload) {
   return {};
 }
 
+// Export is different from a live-config update: it must never replace an
+// existing user-selected file, including one created after a dialog check.
+// NewOnly is an OS-enforced exclusive create. If interrupted, a partial export
+// may remain; import validates the complete JSON before accepting it.
+QString writeNewExport(const QString& path, const QByteArray& payload) {
+  QFile file(path);
+  if (!file.open(QIODevice::WriteOnly | QIODevice::NewOnly))
+    return "Cannot create export without replacing another file.";
+  const bool written = file.write(payload) == payload.size();
+  const bool flushed = file.flush();
+  file.close();
+  if (!written || !flushed || file.error() != QFileDevice::NoError)
+    return "Export could not be fully written; inspect the partial file.";
+  QFile::setPermissions(path, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+  return {};
+}
+
 SettingsResult errorResult(const QString& action, const QString& message) {
   SettingsResult result;
   result.operation = action;
@@ -267,7 +284,7 @@ SettingsResult SettingsService::exportTo(const QString& absolutePath) const {
     return errorResult("settings.export", "Export file already exists; select a new name.");
   if (!QDir(info.absolutePath()).exists())
     return errorResult("settings.export", "Export folder does not exist.");
-  const auto error = writeAtomic(destination, serializeSettings(current.preferences));
+  const auto error = writeNewExport(destination, serializeSettings(current.preferences));
   if (!error.isEmpty()) return errorResult("settings.export", error);
   return successResult("settings.export", current.source, current.preferences);
 }
