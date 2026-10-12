@@ -217,11 +217,14 @@ should not stay resident merely for decoration.
 Implemented:
 
 - versioned structured diagnostics snapshot through CLI and GUI clipboard copy;
-- diagnostics worker/runtime status without user file paths or file contents.
+- diagnostics worker/runtime status without user file paths or file contents;
+- versioned local preferences with CLI/Qt management, atomic writes,
+  explicit export/import/reset, last-good recovery and corruption refusal
+  (development source; see [Settings](SETTINGS.md)).
 
 Next:
 
-- durable settings export/import/reset/recovery;
+- richer settings options and compatibility/migration testing for future schemas;
 - structured/rotating logs and diagnostics bundle export;
 - richer action history/event timeline;
 - job IDs, cancellation, and progress for long-running work;
