@@ -2,7 +2,10 @@
 
 #include "adapters/github_release_client.hpp"
 
+#include <QCloseEvent>
 #include <QComboBox>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QDesktopServices>
 #include <QDialogButtonBox>
 #include <QFutureWatcher>
@@ -17,7 +20,7 @@ namespace omnidrop {
 
 UpdateCheckDialog::UpdateCheckDialog(QWidget* parent) : QDialog(parent) {
   setWindowTitle("Check for updates - OmniDrop");
-  setMinimumWidth(470);
+  setMinimumWidth(540);
   auto* layout = new QVBoxLayout(this);
   layout->setContentsMargins(22, 20, 22, 18);
   layout->setSpacing(12);
@@ -59,10 +62,14 @@ UpdateCheckDialog::UpdateCheckDialog(QWidget* parent) : QDialog(parent) {
   auto* actions = new QHBoxLayout;
   checkButton_ = new QPushButton("Check now", this);
   checkButton_->setObjectName("updateCheckNow");
+  verifyButton_ = new QPushButton("Verify downloaded ZIP...", this);
+  verifyButton_->setObjectName("updateVerifyLocalZip");
+  verifyButton_->setToolTip("Read-only local checksum and archive-path check. Does not authenticate the publisher or install files.");
   releaseButton_ = new QPushButton("View release in browser", this);
   releaseButton_->setObjectName("updateOpenRelease");
   releaseButton_->setEnabled(false);
   actions->addWidget(checkButton_);
+  actions->addWidget(verifyButton_);
   actions->addStretch();
   actions->addWidget(releaseButton_);
   layout->addLayout(actions);
@@ -73,6 +80,8 @@ UpdateCheckDialog::UpdateCheckDialog(QWidget* parent) : QDialog(parent) {
 
   connect(checkButton_, &QPushButton::clicked, this,
           [this] { startCheck(); });
+  connect(verifyButton_, &QPushButton::clicked, this,
+          [this] { verifyLocalPackage(); });
   connect(releaseButton_, &QPushButton::clicked, this, [this] {
     // The service constructs this URL solely from a validated official tag.
     if (!releaseUrl_.startsWith(
@@ -93,10 +102,11 @@ UpdateCheckDialog::UpdateCheckDialog(QWidget* parent) : QDialog(parent) {
 }
 
 void UpdateCheckDialog::startCheck() {
-  if (checking_) return;
+  if (checking_ || verifying_) return;
   checking_ = true;
   releaseUrl_.clear();
   checkButton_->setEnabled(false);
+  verifyButton_->setEnabled(false);
   releaseButton_->setEnabled(false);
   channel_->setEnabled(false);
   status_->setText("Checking official GitHub release metadata...");
@@ -109,12 +119,65 @@ void UpdateCheckDialog::startCheck() {
     watcher->deleteLater();
     checking_ = false;
     checkButton_->setEnabled(true);
+    verifyButton_->setEnabled(true);
     channel_->setEnabled(true);
     showResult(result);
   });
   watcher->setFuture(QtConcurrent::run([selected] {
     return GitHubReleaseClient::check(OMNIDROP_VERSION, selected);
   }));
+}
+
+void UpdateCheckDialog::verifyLocalPackage() {
+  if (checking_ || verifying_) return;
+  const QString zip = QFileDialog::getOpenFileName(
+      this, "Select a downloaded OmniDrop ZIP", {},
+      "OmniDrop ZIP (OmniDrop-*-windows-dev.zip)");
+  if (zip.isEmpty()) return;
+  QString checksum = zip + ".sha256";
+  if (!QFileInfo::exists(checksum)) {
+    checksum = QFileDialog::getOpenFileName(
+        this, "Select the matching SHA-256 file",
+        QFileInfo(zip).absolutePath(), "Checksum files (*.sha256)");
+    if (checksum.isEmpty()) return;
+  }
+
+  verifying_ = true;
+  checkButton_->setEnabled(false);
+  verifyButton_->setEnabled(false);
+  releaseButton_->setEnabled(false);
+  channel_->setEnabled(false);
+  status_->setText("Checking local archive SHA-256 and ZIP paths...");
+
+  auto* watcher = new QFutureWatcher<LocalUpdatePreflightResult>(this);
+  connect(watcher, &QFutureWatcher<LocalUpdatePreflightResult>::finished,
+          this, [this, watcher] {
+    const auto result = watcher->result();
+    watcher->deleteLater();
+    verifying_ = false;
+    checkButton_->setEnabled(true);
+    verifyButton_->setEnabled(true);
+    channel_->setEnabled(true);
+    showPreflightResult(result);
+  });
+  watcher->setFuture(QtConcurrent::run([zip, checksum] {
+    return LocalUpdatePreflightService::verify(zip, checksum);
+  }));
+}
+
+void UpdateCheckDialog::showPreflightResult(
+    const LocalUpdatePreflightResult& result) {
+  if (!result.ok) {
+    status_->setText("Local ZIP preflight blocked: " + result.error +
+                     " No files were installed or modified.");
+  } else {
+    status_->setText(QString(
+        "Local ZIP v%1 matches its supplied SHA-256 and %2 archive entries "
+        "passed structural safety checks. Publisher provenance is NOT "
+        "authenticated. Nothing was extracted or installed.")
+        .arg(result.packageVersion)
+        .arg(result.entryCount));
+  }
 }
 
 void UpdateCheckDialog::showResult(const UpdateCheckResult& result) {
@@ -140,10 +203,16 @@ void UpdateCheckDialog::showResult(const UpdateCheckResult& result) {
 }
 
 void UpdateCheckDialog::reject() {
-  // The request is read-only and bounded. Keep the window in place until
-  // it completes so a user sees the final error or result.
-  if (checking_) return;
+  if (checking_ || verifying_) return;
   QDialog::reject();
+}
+
+void UpdateCheckDialog::closeEvent(QCloseEvent* event) {
+  if (checking_ || verifying_) {
+    event->ignore();
+    return;
+  }
+  QDialog::closeEvent(event);
 }
 
 }  // namespace omnidrop
