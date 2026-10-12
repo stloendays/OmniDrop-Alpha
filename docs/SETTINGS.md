@@ -60,7 +60,10 @@ preserves the other setting even when concurrent callers are active.
 
 Paths passed to import/export must be absolute. Import accepts only small,
 regular, non-symlink JSON files with known schema version and exact valid keys.
-The maximum settings document size is 8 KiB.
+The maximum settings document size is 8 KiB. Export uses exclusive file
+creation to prevent overwriting an existing user-selected file; unlike live
+settings updates, interrupted exports can leave an incomplete file, which
+import validation will reject.
 
 ## Atomic writes, rollback and corruption handling
 
