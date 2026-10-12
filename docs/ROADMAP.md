@@ -13,6 +13,9 @@ Completed in the current alpha:
 - Async worker execution off the Qt UI thread.
 - Runtime capability probing.
 - Recent Files, Action Search, keyboard shortcuts, and persistent Activity history.
+- resizable two-pane desktop workspace with informative empty states, local-file
+  drag/drop rejection feedback and explicit keyboard action shortcuts
+  (development source; see [GUI workspace](GUI_WORKSPACE.md)).
 - Unit/contract-oriented CI baseline.
 
 ## Phase 1 - useful daily file operations
