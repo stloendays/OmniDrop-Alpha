@@ -123,14 +123,16 @@ Implemented:
   case-insensitive matching, protected filename extension, collisions,
   Windows reserved names and GUI/CLI shared application service);
 - no implicit rename, overwrite or remote processing;
-- development-only, explicitly approved same-folder rename transactions:
+- explicitly approved same-folder rename transactions (released in v0.4.0):
   SHA-256 and mtime verification, no-replace OS rename, durable journal,
-  verified Undo, and manual crash recovery (not in the tagged v0.3.0 package).
+  verified Undo, and manual crash recovery;
+- development GUI history browser with read-only transaction listing/details,
+  confirmed Apply / Undo / Recover, and off-thread filesystem verification.
 
 Next:
 
-- full UX for selecting and recovering historical rename transactions,
-  multi-directory plans and expanded failure-injection coverage;
+- multi-directory planning, expanded failure-injection coverage,
+  recovery ergonomics and safe handling of very large journal histories;
 - selectable rule presets and preview/export of reusable rename recipes.
 
 ### Text / developer files

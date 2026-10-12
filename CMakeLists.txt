@@ -61,6 +61,8 @@ if(OMNIDROP_BUILD_GUI)
     src/gui/workflow_dialog.cpp
     src/gui/rename_preview_dialog.cpp
     src/gui/rename_preview_dialog.hpp
+    src/gui/rename_history_dialog.cpp
+    src/gui/rename_history_dialog.hpp
     src/gui/workflow_graph_view.cpp
     src/gui/workflow_graph_view.hpp
     src/gui/drop_zone.cpp
@@ -217,6 +219,17 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
              COMMAND omnidrop_rename_preview_gui_tests)
     set_tests_properties(omnidrop_rename_preview_gui_tests PROPERTIES
       ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    add_executable(omnidrop_rename_history_gui_tests
+      tests/rename_history_dialog_tests.cpp
+      src/gui/rename_history_dialog.cpp
+      src/gui/rename_history_dialog.hpp)
+    target_link_libraries(omnidrop_rename_history_gui_tests PRIVATE
+      omnidrop_core Qt6::Widgets Qt6::Concurrent)
+    add_test(NAME omnidrop_rename_history_gui_tests
+             COMMAND omnidrop_rename_history_gui_tests)
+    set_tests_properties(omnidrop_rename_history_gui_tests PROPERTIES
+      ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 80)
   endif()
 
   if(TARGET omnidrop_desktop)

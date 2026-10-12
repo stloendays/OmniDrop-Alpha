@@ -4,6 +4,7 @@
 #include "gui/translation_dialog.hpp"
 #include "gui/workflow_dialog.hpp"
 #include "gui/rename_preview_dialog.hpp"
+#include "gui/rename_history_dialog.hpp"
 
 #include "adapters/diagnostics_service.hpp"
 
@@ -152,8 +153,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   auto* translateAction = toolsMenu->addAction("Translate text or subtitles...");
   auto* workflowAction = toolsMenu->addAction("Workflow builder...");
   auto* renamePreviewAction = toolsMenu->addAction("Batch rename preview...");
+  auto* renameHistoryAction = toolsMenu->addAction("Rename history and recovery...");
 
   auto* historyMenu = menuBar()->addMenu("History");
+  historyMenu->addAction(renameHistoryAction);
+  historyMenu->addSeparator();
   auto* clearRecent = historyMenu->addAction("Clear recent files");
   auto* clearActivity = historyMenu->addAction("Clear activity");
 
@@ -182,6 +186,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   connect(workflowAction, &QAction::triggered, this, openWorkflow);
   connect(renamePreviewAction, &QAction::triggered, this, [this] {
     auto* dialog = new RenamePreviewDialog(currentBatch_.paths, this);
+    dialog->show();
+  });
+  connect(renameHistoryAction, &QAction::triggered, this, [this] {
+    auto* dialog = new RenameHistoryDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
   });
   connect(translateButton, &QPushButton::clicked, this, openTranslation);
