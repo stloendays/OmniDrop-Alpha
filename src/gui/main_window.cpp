@@ -6,6 +6,7 @@
 #include "gui/rename_preview_dialog.hpp"
 #include "gui/rename_history_dialog.hpp"
 #include "gui/settings_dialog.hpp"
+#include "gui/update_check_dialog.hpp"
 
 #include "adapters/diagnostics_service.hpp"
 
@@ -241,6 +242,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   auto* clearActivity = historyMenu->addAction("Clear activity");
 
   auto* helpMenu = menuBar()->addMenu("Help");
+  auto* updateAction = helpMenu->addAction("Check for updates...");
   auto* copyDiagnosticsAction = helpMenu->addAction("Copy diagnostics");
   helpMenu->addSeparator();
   auto* aboutAction = helpMenu->addAction("About OmniDrop");
@@ -312,6 +314,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   });
   connect(clearRecent, &QAction::triggered, this, [this] { recentFiles_.clear(); refreshRecentFiles(); });
   connect(clearActivity, &QAction::triggered, this, [this] { history_.clear(); refreshHistory(); });
+  connect(updateAction, &QAction::triggered, this, [this] {
+    auto* dialog = new UpdateCheckDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+  });
   connect(copyDiagnosticsAction, &QAction::triggered, this, [this] {
     statusLabel_->setText("Collecting diagnostics...");
     auto* watcher = new QFutureWatcher<QByteArray>(this);
