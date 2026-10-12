@@ -264,8 +264,8 @@ QString LocalUpdatePreflightService::validateInstallDirectory(
   while (true) {
     const QString path = current.absolutePath();
     const QFileInfo info(path);
-    if (info.isSymLink() || !info.isDir())
-      return "Installation path contains a symlink or is not a directory.";
+    if (info.isSymLink() || info.isJunction() || !info.isDir())
+      return "Installation path contains a symlink/junction or is not a directory.";
     const QFileInfo git(current.filePath(".git"));
     if (git.exists() || git.isSymLink())
       return "Development checkout detected (.git). Automatic replacement is forbidden.";
