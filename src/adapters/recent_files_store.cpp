@@ -21,14 +21,15 @@ QStringList RecentFilesStore::load() const {
   QSettings settings;
   const auto stored = settings.value(kRecentFilesKey).toStringList();
   QStringList existing;
-  const int limit = effectiveLimit();
   for (const auto& path : stored) {
     const QFileInfo info(path);
     if (info.exists() && info.isFile()) existing.push_back(info.absoluteFilePath());
-    if (existing.size() >= limit) break;
   }
   if (existing != stored) settings.setValue(kRecentFilesKey, existing);
-  return existing;
+  // Display limits must not silently discard healthy older entries just
+  // because the user reduced the preference. New file additions still
+  // enforce the configured retention cap.
+  return existing.mid(0, effectiveLimit());
 }
 
 void RecentFilesStore::add(const QString& path) const {
