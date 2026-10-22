@@ -18,6 +18,18 @@ At runtime the app probes for the executable. Without it the three actions appea
 
 Outputs are placed in **new sibling directories**, with unique paths and untouched source PDFs. Failed/partial results are removed. Run-time timeout defaults to 1800 s, configurable with `OMNIDROP_MINERU_TIMEOUT_SECONDS` (60–1800 s). OmniDrop does not pass `MINERU_API_URL` or `MINERU_API_KEY` to this adapter.
 
+### Built-in result inspection
+
+Every successful parse additionally produces:
+
+- `preview.md` — bounded read-only excerpt (maximum 48,000 content characters). It is not a complete export and shows formulas as LaTeX source, not typeset equations.
+- `provenance.json` — source SHA-256 and file size, requested tier, output format, UTC processing time, optional page count and block-type inventory, and `validation_status=not_manually_verified`.
+- For ZIP exports, up to **8** small image previews in `preview_images/`. ZIP paths are never used directly as extraction paths; figures are given generated filenames, with per-image size and pixel checks.
+
+The Qt GUI opens a read-only scientific preview for successful single-PDF actions. The text is rendered as **inert plain text**, not untrusted HTML. No browser runtime or outbound image retrieval is used. Open the original PDF or the produced ZIP for full-size figures and validation. The CLI returns additive `preview_path`, `provenance_path`, `preview_images` and `page_count` keys in its worker JSON response.
+
+MinerU 4's `mineru-kit parse` processes **all PDF pages by default**. The document-library `mineru parse` command is different and defaults to its first-ten-page window. MiddleJson uses `schema=docvortex.middle`, `schema_version=2.0` and a `pages` array. Standalone JSON intentionally omits some image bytes; use ZIP when source image assets are essential.
+
 The worker protocol remains v1. The C++ GUI and CLI use the same action IDs:
 
 ```powershell
