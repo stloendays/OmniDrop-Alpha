@@ -51,7 +51,7 @@ class ScientificPdfTests(unittest.TestCase):
                 self.assertEqual(self.pdf.read_bytes(), before)
             again = worker.handle({"command": "run", "action_id": "pdf.parse_scientific", "path": str(self.pdf)})
             self.assertTrue(again["ok"])
-            self.assertIn("-2/", again["output_path"])
+            self.assertTrue(Path(again["output_path"]).parent.name.endswith("-2"))
 
     def test_failure_removes_partial_files(self):
         def fail(command, **kwargs):
