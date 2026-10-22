@@ -286,6 +286,8 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
       tests/scientific_preview_dialog_tests.cpp
       src/gui/scientific_preview_dialog.cpp
       src/gui/scientific_preview_dialog.hpp)
+    target_include_directories(omnidrop_scientific_preview_gui_tests PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(omnidrop_scientific_preview_gui_tests PRIVATE
       Qt6::Widgets)
     add_test(NAME omnidrop_scientific_preview_gui_tests
