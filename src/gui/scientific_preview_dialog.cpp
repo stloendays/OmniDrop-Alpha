@@ -7,7 +7,9 @@
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <QHBoxLayout>
+#include <QImage>
 #include <QImageReader>
+#include <QPixmap>
 #include <QJsonArray>
 #include <QLabel>
 #include <QPlainTextEdit>
