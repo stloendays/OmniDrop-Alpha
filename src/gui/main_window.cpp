@@ -7,6 +7,7 @@
 #include "gui/rename_history_dialog.hpp"
 #include "gui/settings_dialog.hpp"
 #include "gui/update_check_dialog.hpp"
+#include "gui/scientific_preview_dialog.hpp"
 
 #include "adapters/diagnostics_service.hpp"
 
@@ -675,6 +676,21 @@ void MainWindow::runSelectedAction() {
           QString("Batch complete: %1 succeeded, %2 failed.")
               .arg(execution.progress.succeeded)
               .arg(execution.progress.failed));
+    }
+
+    // A local read-only preview is shown only for a completed single PDF.
+    const bool scientificAction = action.id.startsWith("pdf.parse_scientific") ||
+                                  action.id == "pdf.export_scientific_bundle";
+    if (scientificAction && execution.results.size() == 1) {
+      const auto& result = execution.results.first().second;
+      if (result.ok) {
+        const auto response = QJsonDocument::fromJson(result.output.toUtf8()).object();
+        if (!response.value("preview_path").toString().isEmpty()) {
+          auto* preview = new ScientificPreviewDialog(response, this);
+          preview->setAttribute(Qt::WA_DeleteOnClose);
+          preview->show();
+        }
+      }
     }
   });
 

@@ -71,6 +71,8 @@ if(OMNIDROP_BUILD_GUI)
     src/gui/settings_dialog.hpp
     src/gui/update_check_dialog.cpp
     src/gui/update_check_dialog.hpp
+    src/gui/scientific_preview_dialog.cpp
+    src/gui/scientific_preview_dialog.hpp
     src/gui/workflow_graph_view.cpp
     src/gui/workflow_graph_view.hpp
     src/gui/drop_zone.cpp
@@ -260,7 +262,8 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
       src/gui/rename_preview_dialog.cpp
       src/gui/rename_history_dialog.cpp
       src/gui/settings_dialog.cpp
-      src/gui/update_check_dialog.cpp)
+      src/gui/update_check_dialog.cpp
+      src/gui/scientific_preview_dialog.cpp)
     target_link_libraries(omnidrop_workspace_gui_tests PRIVATE
       omnidrop_core omnidrop_adapters omnidrop_desktop
       Qt6::Widgets Qt6::Concurrent)
@@ -278,6 +281,19 @@ if(OMNIDROP_BUILD_TESTS AND BUILD_TESTING)
              COMMAND omnidrop_update_dialog_tests)
     set_tests_properties(omnidrop_update_dialog_tests PROPERTIES
       ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
+
+    add_executable(omnidrop_scientific_preview_gui_tests
+      tests/scientific_preview_dialog_tests.cpp
+      src/gui/scientific_preview_dialog.cpp
+      src/gui/scientific_preview_dialog.hpp)
+    target_include_directories(omnidrop_scientific_preview_gui_tests PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(omnidrop_scientific_preview_gui_tests PRIVATE
+      Qt6::Widgets)
+    add_test(NAME omnidrop_scientific_preview_gui_tests
+      COMMAND omnidrop_scientific_preview_gui_tests)
+    set_tests_properties(omnidrop_scientific_preview_gui_tests PROPERTIES
+      ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 20)
 
     add_executable(omnidrop_graph_view_tests
       tests/workflow_graph_view_tests.cpp

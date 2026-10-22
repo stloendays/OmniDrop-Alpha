@@ -59,16 +59,19 @@ int main(int argc, char** argv) {
 
   const auto pdf = catalog.recommendedActions(FileKind::Pdf);
   bool hasExtract = false;
+  bool hasScientific = false;
   bool hasPdfRotateClockwise = false;
   bool hasPdfRotateCounterclockwise = false;
   bool hasPdfExtractImages = false;
   for (const auto& action : pdf) {
     hasExtract |= action.id == "pdf.extract_text";
+    hasScientific |= action.id == "pdf.parse_scientific" && action.backend == "python-mineru";
     hasPdfRotateClockwise |= action.id == "pdf.rotate_clockwise";
     hasPdfRotateCounterclockwise |= action.id == "pdf.rotate_counterclockwise";
     hasPdfExtractImages |= action.id == "pdf.extract_images" && action.backend == "python-pypdf";
   }
   assert(hasExtract);
+  assert(hasScientific);
   assert(hasPdfRotateClockwise);
   assert(hasPdfRotateCounterclockwise);
   assert(hasPdfExtractImages);
@@ -89,6 +92,7 @@ int main(int argc, char** argv) {
       "image.resize_half",
       "image.remove_metadata",
       "pdf.extract_text",
+      "pdf.parse_scientific",
       "pdf.extract_images",
       "pdf.split",
       "pdf.rotate_clockwise",
@@ -153,10 +157,13 @@ int main(int argc, char** argv) {
 
   const auto onePdfInspection = service.inspect("a.pdf", runtimeActions);
   bool pdfRotateAvailable = false;
+  bool scientificAvailable = false;
   for (const auto& action : onePdfInspection.actions) {
     if (action.id == "pdf.rotate_clockwise") pdfRotateAvailable = action.available;
+    if (action.id == "pdf.parse_scientific") scientificAvailable = action.available;
   }
   assert(pdfRotateAvailable);
+  assert(scientificAvailable);
 
   const auto twoPdf = service.inspectMany({"a.pdf", "b.pdf"}, runtimeActions);
   bool hasMerge = false;

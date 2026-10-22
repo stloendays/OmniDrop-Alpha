@@ -200,3 +200,7 @@ Bug reports, use cases, documentation fixes and small focused PRs are welcome. P
 OmniDrop is released under the **[MIT License](LICENSE)**.
 
 <sub>Made for useful local workflows. Packaged UI may differ slightly from repository previews.</sub>
+
+## Scientific PDFs
+
+Optional MinerU 4 parsing exports Markdown, MiddleJson, or a ZIP with figures. See [MinerU setup](docs/MINERU.md).

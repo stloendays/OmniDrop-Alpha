@@ -84,3 +84,7 @@ as runnable.
 The default contract for file transforms is non-destructive: produce a new sibling file or a new
 output directory. Any future in-place mutation must use a distinct action ID and make the destructive
 semantics explicit before execution.
+
+## Scientific PDFs
+
+MinerU 4 provides `pdf.parse_scientific`, `pdf.parse_scientific_json`, `pdf.export_scientific_bundle`. Runtime-gated; see [MinerU integration](MINERU.md).

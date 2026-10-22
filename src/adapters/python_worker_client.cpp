@@ -90,7 +90,11 @@ WorkerResult PythonWorkerClient::capabilities() const {
 
 WorkerResult PythonWorkerClient::runAction(const QString& actionId, const QString& path) const {
   QJsonObject root{{"command", "run"}, {"action_id", actionId}, {"path", path}};
-  return invoke(QJsonDocument(root).toJson(QJsonDocument::Compact));
+  const int timeoutMs = actionId.startsWith("pdf.parse_scientific") ||
+                                actionId == "pdf.export_scientific_bundle"
+                            ? 1810000
+                            : 120000;
+  return invoke(QJsonDocument(root).toJson(QJsonDocument::Compact), timeoutMs);
 }
 
 WorkerResult PythonWorkerClient::runBatchAction(
