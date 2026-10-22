@@ -50,11 +50,18 @@ def _middle_stats(value: object) -> dict[str, Any]:
             if not isinstance(block, dict) or not isinstance(block.get("type"), str):
                 raise PreviewError("MiddleJson blocks require a type")
             counts[block["type"]] += 1
+    metadata = value.get("metadata") if isinstance(value.get("metadata"), dict) else {}
+    producer = metadata.get("producer") if isinstance(metadata.get("producer"), dict) else {}
+    extensions = value.get("extensions") if isinstance(value.get("extensions"), dict) else {}
+    settings = extensions.get("mineru") if isinstance(extensions.get("mineru"), dict) else {}
     return {
         "page_count": len(pages),
         "page_indices": sorted(indices),
         "block_types": dict(sorted(counts.items())),
         "is_full_document": value.get("is_full_document") is True,
+        "producer_version": producer.get("version") if isinstance(producer.get("version"), str) else None,
+        "actual_tier": settings.get("tier") if isinstance(settings.get("tier"), str) else None,
+        "parse_mode": settings.get("parse_mode") if isinstance(settings.get("parse_mode"), str) else None,
     }
 
 
