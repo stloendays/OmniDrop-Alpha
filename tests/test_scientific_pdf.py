@@ -35,10 +35,11 @@ class ScientificPdfTests(unittest.TestCase):
             self.assertNotIn("MINERU_API_URL", kwargs["env"])
             output.parent.mkdir(parents=True, exist_ok=True)
             if command[-1] == "middle_json":
-                output.write_text('{"schema":"docvortex.middle","schema_version":"2.0"}', encoding="utf-8")
+                output.write_text('{"schema":"docvortex.middle","schema_version":"2.0","pages":[{"page_idx":0,"blocks":[{"type":"text","content":[]}]}]}', encoding="utf-8")
             elif command[-1] == "zip":
                 with zipfile.ZipFile(output, "w") as z:
                     z.writestr("markdown.md", "# test")
+                    z.writestr("middle_json.json", '{"schema":"docvortex.middle","schema_version":"2.0","pages":[{"page_idx":0,"blocks":[]}]}')
             else:
                 output.write_text("# test\n", encoding="utf-8")
                 (output.parent / "image.png").write_bytes(b"image")
@@ -49,6 +50,9 @@ class ScientificPdfTests(unittest.TestCase):
                 self.assertTrue(result["ok"], result)
                 self.assertTrue(Path(result["output_path"]).is_file())
                 self.assertEqual(self.pdf.read_bytes(), before)
+                self.assertTrue(Path(result["preview_path"]).is_file())
+                self.assertTrue(Path(result["provenance_path"]).is_file())
+                self.assertEqual(result["page_count"], 1 if action != "pdf.parse_scientific" else None)
             again = worker.handle({"command": "run", "action_id": "pdf.parse_scientific", "path": str(self.pdf)})
             self.assertTrue(again["ok"])
             self.assertTrue(Path(again["output_path"]).parent.name.endswith("-2"))
