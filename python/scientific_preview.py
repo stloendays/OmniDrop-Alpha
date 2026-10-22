@@ -65,6 +65,19 @@ def _middle_stats(value: object) -> dict[str, Any]:
     }
 
 
+def _source_pdf_pages(path: Path) -> int | None:
+    # Structural page-count comparison only; it does not validate parsed text.
+    try:
+        with path.open("rb") as handle:
+            handle.seek(max(0, path.stat().st_size - 4096))
+            if b"%%EOF" not in handle.read():
+                return None
+        from pypdf import PdfReader
+        return len(PdfReader(str(path), strict=False).pages)
+    except Exception:
+        return None
+
+
 def _safe_markdown(artifact: Path) -> str:
     if artifact.stat().st_size > _MAX_TEXT:
         with artifact.open("rb") as handle:
@@ -140,8 +153,15 @@ def prepare_scientific_preview(source: Path, artifact: Path, fmt: str, directory
         raise PreviewError("Unknown MinerU result format")
     if not excerpt.strip() and not stats.get("page_count"):
         raise PreviewError("MinerU returned an empty document")
+    source_page_count = _source_pdf_pages(source)
+    parsed_page_count = stats.get("page_count")
+    coverage_match = (source_page_count == parsed_page_count
+                      if source_page_count is not None and parsed_page_count is not None
+                      else None)
     provenance = {
         "schema_version": 1,
+        "source_pdf_page_count": source_page_count,
+        "page_count_matches_source": coverage_match,
         "source_name": source.name,
         "source_sha256": _source_sha256(source),
         "source_bytes": source.stat().st_size,
