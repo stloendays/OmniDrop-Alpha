@@ -45,6 +45,9 @@ QList<ActionDescriptor> ActionCatalog::recommendedActions(FileKind kind) const {
     case FileKind::Pdf:
       actions = {
           action("pdf.compress", "Compress PDF", "Reduce PDF file size.", 10),
+          action("pdf.parse_scientific", "Scientific PDF to Markdown", "Parse scientific papers with optional local MinerU 4.", 12, true, "python-mineru"),
+          action("pdf.parse_scientific_json", "Scientific PDF to Middle JSON", "Export page-wise structured blocks, tables, and equations via MinerU.", 13, true, "python-mineru"),
+          action("pdf.export_scientific_bundle", "Scientific PDF assets bundle", "Export Markdown, structured data, and associated figure assets via MinerU.", 14, true, "python-mineru"),
           action("pdf.extract_text", "Extract text", "Export readable text from the document.", 20, true, "python-pypdf"),
           action("pdf.split", "Split pages", "Create one PDF file per page in a new folder.", 30, true, "python-pypdf"),
           action("pdf.rotate_clockwise", "Rotate pages 90° clockwise", "Create a copy with every page rotated 90 degrees clockwise.", 35, true, "python-pypdf"),
