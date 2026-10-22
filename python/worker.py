@@ -21,6 +21,7 @@ from translation import TranslationError, translate_file, ALL_PROVIDERS, SUPPORT
 from audio_voice import SpeechError, speech_available, installed_voices, narrate_file
 from pdf_image_extraction import extract_images as pdf_extract_images
 from duplicate_finder import create_report as find_duplicate_files
+from scientific_pdf import available as mineru_available, parse as parse_scientific_pdf, MineruError, FORMATS as MINERU_FORMATS
 from workflow_engine import WorkflowError, plan as workflow_plan, run as workflow_run, validate as workflow_validate
 
 
@@ -431,6 +432,8 @@ def capabilities() -> list[str]:
         ])
         if pillow_available():
             actions.append("pdf.extract_images")
+    if mineru_available():
+        actions.extend(MINERU_FORMATS)
     return actions
 
 
@@ -597,6 +600,11 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
                 )
             except (zipfile.BadZipFile, ValueError) as exc:
                 return fail(f"Archive extraction failed: {exc}", "archive_error")
+        if action_id in MINERU_FORMATS:
+            try:
+                return ok(action_id=action_id, path=str(path), **parse_scientific_pdf(path, action_id))
+            except MineruError as exc:
+                return fail(str(exc), exc.code)
         if action_id == "pdf.extract_text":
             if not pypdf_available():
                 return fail("pypdf is not installed for PDF processing.", "missing_dependency")
