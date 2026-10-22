@@ -60,6 +60,25 @@ class PreviewTests(unittest.TestCase):
         self.assertTrue(Path(info["preview_images"][0]).name.startswith("figure_"))
         self.assertFalse((self.directory / "malicious.png").exists())
 
+    def test_detects_incomplete_page_coverage_in_a_valid_pdf(self):
+        try:
+            from pypdf import PdfWriter
+        except ImportError:
+            self.skipTest("pypdf is optional")
+        writer = PdfWriter()
+        for _ in range(3):
+            writer.add_blank_page(width=200, height=200)
+        with self.source.open("wb") as handle:
+            writer.write(handle)
+        output = self.directory / "paper.json"
+        output.write_text(json.dumps(VALID), encoding="utf-8")
+        info = prepare_scientific_preview(self.source, output, "middle_json", self.directory)
+        data = json.loads(Path(info["provenance_path"]).read_text(encoding="utf-8"))
+        self.assertEqual(data["source_pdf_page_count"], 3)
+        self.assertEqual(data["page_count"], 2)
+        self.assertFalse(data["page_count_matches_source"])
+        self.assertFalse(data["numeric_values_verified"])
+
     def test_zip_requires_both_core_outputs(self):
         output = self.directory / "paper.zip"
         with zipfile.ZipFile(output, "w") as z:
