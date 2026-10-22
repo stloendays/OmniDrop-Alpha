@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 import zipfile
 from pathlib import Path
+from scientific_preview import prepare_scientific_preview, PreviewError
 
 FORMATS = {
     "pdf.parse_scientific": ("markdown", ".md"),
@@ -75,6 +76,10 @@ def parse(path, action_id):
                 raise ValueError("Invalid ZIP")
         except (ValueError, UnicodeError) as exc:
             raise MineruError("Invalid MinerU output.", "invalid_output") from exc
+        try:
+            preview = prepare_scientific_preview(path, output, fmt, stage)
+        except (PreviewError, zipfile.BadZipFile, OSError) as exc:
+            raise MineruError(f"MinerU preview/provenance validation failed: {exc}", "invalid_output") from exc
         base = path.parent / (path.stem + ".mineru-" + fmt)
         destination = base
         number = 2
@@ -82,8 +87,19 @@ def parse(path, action_id):
             destination = path.parent / (base.name + "-" + str(number))
             number += 1
         stage.rename(destination)
-        return {"output_path": str(destination / output.name),
-                "output_dir": str(destination), "format": fmt, "engine": "mineru-kit"}
+        return {
+            "output_path": str(destination / output.name),
+            "output_dir": str(destination),
+            "format": fmt,
+            "engine": "mineru-kit",
+            "preview_path": str(destination / Path(preview["preview_path"]).relative_to(stage)),
+            "provenance_path": str(destination / Path(preview["provenance_path"]).relative_to(stage)),
+            "preview_images": [
+                str(destination / Path(image).relative_to(stage))
+                for image in preview["preview_images"]
+            ],
+            "page_count": preview["page_count"],
+        }
     finally:
         if stage.exists():
             shutil.rmtree(stage)
